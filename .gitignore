@@ -1,0 +1,9 @@
+build/
+cmake-build-*/
+.cache/
+.vscode/
+*.xex
+*.elf
+*.log
+*.user
+*.suo
