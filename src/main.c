@@ -20,6 +20,7 @@
 #include "probe.h"
 #include "https.h"
 #include "catalog_runtime.h"
+#include "oauth_runtime.h"
 #include "render.h"
 #include "settings.h"
 #include "ui.h"
@@ -39,11 +40,13 @@ enum {
 #define HTTPS_CA "game:/cacert.pem"
 #define CATALOG_LOCAL_FILE "game:/catalog.json"
 #define CATALOG_SOURCE_FILE "game:/catalog-source.txt"
+#define OAUTH_CLIENT_FILE "game:/oauth-client.txt"
 
 /* Detached XAM workers live for the whole title lifetime. */
 static Cloud360Probe connectivity;
 static Cloud360Https secure_http;
 static Cloud360CatalogRuntime catalog_runtime;
+static Cloud360OAuthRuntime microsoft_login;
 
 static uint32_t milliseconds(void)
 {
@@ -84,9 +87,13 @@ static uint16_t controller_buttons(void)
     if (raw & INPUT_GAMEPAD_RIGHT_SHOULDER)
         buttons |= CLOUD360_MENU_NEXT_TAB;
     if (raw & INPUT_GAMEPAD_X)
-        buttons |= CLOUD360_MENU_NETWORK_TEST | CLOUD360_MENU_CATALOG_LOCAL;
+        buttons |= CLOUD360_MENU_NETWORK_TEST |
+                   CLOUD360_MENU_CATALOG_LOCAL |
+                   CLOUD360_MENU_ACCOUNT_CANCEL;
     if (raw & INPUT_GAMEPAD_Y)
-        buttons |= CLOUD360_MENU_NETWORK_HTTPS | CLOUD360_MENU_CATALOG_ONLINE;
+        buttons |= CLOUD360_MENU_NETWORK_HTTPS |
+                   CLOUD360_MENU_CATALOG_ONLINE |
+                   CLOUD360_MENU_ACCOUNT_LOGOUT;
     return buttons;
 }
 
@@ -138,6 +145,14 @@ static void run_title(uint32_t width, uint32_t height)
     if (https_error)
         xsdk_log_write("Cloud360: HTTPS diagnostic unavailable: %d", https_error);
 
+    const Cloud360OAuthTransport login_transport = {
+        .post = cloud360_https_curl_post_form, .context = NULL
+    };
+    const int login_error = cloud360_oauth_runtime_init(
+        &microsoft_login, OAUTH_CLIENT_FILE, HTTPS_CA, login_transport);
+    if (login_error)
+        xsdk_log_write("Cloud360: OAuth state init failed: %d", login_error);
+
     const int catalog_error = cloud360_catalog_runtime_init(
         &catalog_runtime, cloud360_https_curl_get, NULL);
     if (catalog_error) {
@@ -171,6 +186,8 @@ static void run_title(uint32_t width, uint32_t height)
         const uint32_t prev_section = menu.selected;
         if (cloud360_menu_step(&menu, controller_buttons())) {
             xsdk_log_write("Cloud360: Back pressed - exit");
+            if (!login_error)
+                cloud360_oauth_runtime_logout(&microsoft_login);
             return;
         }
 
@@ -202,6 +219,21 @@ static void run_title(uint32_t width, uint32_t height)
             delta = 16;
         cloud360_ui_step(&ui, &menu, delta);
 
+        /* OAuth access/refresh tokens remain in protected runtime memory.
+         * The UI only receives the temporary user_code and verification URI.
+         * Polling honors server timing and remains asynchronous. */
+        if (!login_error) {
+            cloud360_oauth_runtime_tick(&microsoft_login, now);
+            if (menu.selected == CLOUD360_SECTION_ACCOUNT) {
+                if (menu.account_cancel_requested)
+                    cloud360_oauth_runtime_cancel(&microsoft_login);
+                else if (menu.account_logout_requested)
+                    cloud360_oauth_runtime_logout(&microsoft_login);
+                else if (menu.account_begin_requested)
+                    (void)cloud360_oauth_runtime_begin(&microsoft_login, now);
+            }
+        }
+
         /* Check XAM's network only while the user views the Network tab.
          * Polling is throttled, so rendering is not tied to network traffic. */
         if (menu.selected == CLOUD360_SECTION_NETWORK) {
@@ -228,6 +260,8 @@ static void run_title(uint32_t width, uint32_t height)
         const NTSTATUS status = xsdk_present_begin(&address, BEGIN_TIMEOUT_MS);
         if (!NT_SUCCESS(status)) {
             xsdk_log_write("Cloud360: present failed 0x%08X", (unsigned)status);
+            if (!login_error)
+                cloud360_oauth_runtime_logout(&microsoft_login);
             return;
         }
 
@@ -240,8 +274,14 @@ static void run_title(uint32_t width, uint32_t height)
         if (!catalog_error)
             cloud360_catalog_runtime_snapshot(&catalog_runtime,
                                               menu.card_index, &catalog_view);
+        Cloud360OAuthView login_view = { 0 };
+        if (!login_error)
+            cloud360_oauth_runtime_view(&microsoft_login, now, &login_view);
+        else
+            login_view.status = CLOUD360_OAUTH_UNAVAILABLE;
         cloud360_render(address, width, height, &menu, &ui,
-                        &network, &probe_result, &https_result, &catalog_view);
+                        &network, &probe_result, &https_result,
+                        &catalog_view, &login_view);
         xsdk_present_end();
     }
 }

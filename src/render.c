@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include "icons.h"
 #include "xsdk/gpu.h"
 #include "xsdk/text.h"
@@ -97,7 +98,7 @@ static uint32_t contrast_panel(const Cloud360Menu *menu)
 }
 
 static const char *const tabs[CLOUD360_SECTION_COUNT] = {
-    "INICIO", "EXPLORAR", "BUSCAR", "BIBLIOTECA", "AJUSTES", "REDE", "SOBRE"
+    "INICIO", "EXPLORAR", "BUSCAR", "BIBLIOTECA", "AJUSTES", "REDE", "CONTA", "SOBRE"
 };
 
 static const char *const hero_titles[CLOUD360_SECTION_COUNT] = {
@@ -107,6 +108,7 @@ static const char *const hero_titles[CLOUD360_SECTION_COUNT] = {
     "SUA BIBLIOTECA",
     "PERSONALIZE SUA EXPERIENCIA",
     "STATUS DA CONEXAO",
+    "SUA CONTA MICROSOFT",
     "O FUTURO NO XBOX 360"
 };
 
@@ -117,13 +119,14 @@ static const char *const hero_lines[CLOUD360_SECTION_COUNT] = {
     "Seus favoritos e jogos aparecerão apos o login.",
     "Ajustes visuais disponiveis nesta versao.",
     "Diagnostico real da rede local do console.",
+    "Autorizacao por codigo na TV. Ainda sem Xbox Live/XSTS.",
     "Projeto independente, feito para Xbox 360 RGH/JTAG."
 };
 
 static const Cloud360Icon tab_icons[CLOUD360_SECTION_COUNT] = {
     CLOUD360_ICON_HOME, CLOUD360_ICON_GAMEPAD, CLOUD360_ICON_SEARCH,
     CLOUD360_ICON_LIBRARY, CLOUD360_ICON_SETTINGS,
-    CLOUD360_ICON_PC, CLOUD360_ICON_INFO
+    CLOUD360_ICON_PC, CLOUD360_ICON_INFO, CLOUD360_ICON_INFO
 };
 
 static void header(const Cloud360Menu *menu, const Cloud360UiState *ui)
@@ -385,6 +388,46 @@ static void network_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
           "TLS exige cacert.pem e curl-xenon. Nao autentica Xbox Live.");
 }
 
+/* Device authorization on a second screen (OAuth 2.0, RFC 8628).
+ * Shows only the user_code and verification URI, NEVER device_code,
+ * tokens or secrets. Successful OAuth != XSTS / playable xCloud. */
+static void account_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
+                         const Cloud360OAuthView *auth)
+{
+    const uint8_t a = cloud360_ui_page_alpha(ui);
+    rect(42, 398, 1192, 221, contrast_panel(menu));
+
+    const bool active = auth->status == CLOUD360_OAUTH_WAITING ||
+                        auth->status == CLOUD360_OAUTH_POLLING;
+    const uint32_t color =
+        auth->status == CLOUD360_OAUTH_AUTHORIZED ? GREEN :
+        auth->status == CLOUD360_OAUTH_EXPIRED ||
+        auth->status == CLOUD360_OAUTH_DECLINED ||
+        auth->status == CLOUD360_OAUTH_FAILED ? GOLD : SKY;
+
+    cloud360_icon_draw(70, 421, CLOUD360_ICON_INFO, fade(color, a));
+    label(160, 414, 2, WHITE, a, "AUTORIZACAO MICROSOFT");
+    label(165, 467, 1, color, a, cloud360_oauth_status_text(auth->status));
+    if (active) {
+        char countdown[64] = { 0 };
+        (void)snprintf(countdown, sizeof countdown, "EXPIRA EM %u SEGUNDOS",
+                       (unsigned)auth->remaining_seconds);
+        label(165, 498, 1, contrast_text(menu), a, "ABRA NO CELULAR OU PC:");
+        label(165, 522, 1, SKY, a, auth->verification_uri);
+        label(165, 551, 2, WHITE, a, auth->user_code);
+        label(675, 562, 1, MUTED, a, countdown);
+    } else {
+        label(165, 501, 1, contrast_text(menu), a,
+              "Arquivo local: game:/oauth-client.txt (client ID proprio)");
+        label(165, 528, 1, contrast_text(menu), a,
+              "TLS exige game:/cacert.pem e curl-xenon + mbedtls-xenon.");
+    }
+    label(165, 586, 1, SKY, a,
+          "A INICIAR       X CANCELAR       Y SAIR DA CONTA");
+    label(165, 610, 1, MUTED, a,
+          "Autorizacao OAuth nao habilita automaticamente Xbox Live/xCloud.");
+}
+
 static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
 {
     const uint8_t a = cloud360_ui_page_alpha(ui);
@@ -412,6 +455,8 @@ static const char *const modal_messages[CLOUD360_SECTION_COUNT][2] = {
       "Feche esta janela e entre em Ajustes para modifica-las." },
     { "O diagnostico da rede local esta disponivel.",
       "A conexao com Xbox Cloud Gaming nao e testada." },
+    { "Na aba CONTA, pressione A para solicitar um codigo Microsoft.",
+      "Exige cliente registrado, TLS validado e arquivo CA." },
     { "Aplicativo experimental de codigo aberto.",
       "O funcionamento em hardware precisa ser testado." }
 };
@@ -436,7 +481,7 @@ static void footer(const Cloud360Menu *menu, const Cloud360UiState *ui)
     const uint8_t a = cloud360_ui_intro_alpha(ui);
     underline(38, 632, 1186, OUTLINE);
     label(42, 659, 1, GREEN, a, "●  PROTOTIPO LOCAL");
-    label(260, 659, 1, MUTED, a, "SEM LOGIN OU STREAMING");
+    label(260, 659, 1, MUTED, a, "OAUTH EXPERIMENTAL - SEM STREAMING");
     if (menu->settings.show_hints)
         label(675, 659, 1, WHITE, a, "LB/RB  ABAS    A  ABRIR    B  VOLTAR");
     else
@@ -448,7 +493,8 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
                      const Cloud360Network *network,
                      const Cloud360ProbeSnapshot *probe,
                      const Cloud360HttpsSnapshot *https,
-                     const Cloud360CatalogView *catalog)
+                     const Cloud360CatalogView *catalog,
+                     const Cloud360OAuthView *auth)
 {
     xsdk_gpu_set_target(width, height);
     header(menu, ui);
@@ -465,6 +511,8 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
         settings_page(menu, ui);
     else if (menu->selected == CLOUD360_SECTION_NETWORK)
         network_page(menu, ui, network, probe, https);
+    else if (menu->selected == CLOUD360_SECTION_ACCOUNT)
+        account_page(menu, ui, auth);
     else
         about_page(menu, ui);
 

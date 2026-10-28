@@ -55,12 +55,15 @@ de conexão TCP na porta 443 com timeout. A tela mostra sucesso ou falha.
 desativado por padrão até a integração das bibliotecas e testes no console.**
 O botão **Y** solicita um GET HTTPS de `https://example.com/` quando
 curl-xenon, mbedtls-xenon e `game:/cacert.pem` estiverem configurados.
-Sem isso, mostra `TLS NAO INTEGRADO`. Nenhuma autenticação foi implementada.
+Sem isso, mostra `TLS NAO INTEGRADO`. A camada OAuth Microsoft
+por código foi implementada em fonte, mas ainda depende de integração TLS
+validada no hardware e de um cliente Microsoft registrado pelo operador.
 
 Veja o [plano de integração por módulos](docs/DEVELOPMENT.md), o
 [guia de HTTPS/XSDK](docs/HTTPS.md), o
 [guia de catálogo JSON](docs/CATALOG.md) e a
-[análise do Orbita](docs/ORBITA_REFERENCE.md).
+[análise do Orbita](docs/ORBITA_REFERENCE.md) e o
+[guia de login Microsoft](docs/AUTH.md).
 
 ### Catálogo JSON (fonte independente, não é Game Pass)
 
@@ -71,11 +74,13 @@ somente se curl-xenon + mbedtls-xenon estiverem habilitados
 e o arquivo de certificados estiver disponível.
 Os cards exibem títulos importados, identificados como não jogáveis.
 O parser possui busca C interna, ainda sem teclado virtual.
-Nenhuma sessão Xbox Live, login ou jogo xCloud está disponível.
+O novo módulo CONTA implementa fluxo OAuth por código, ainda sem validação
+real no console. Nenhuma sessão Xbox Live/XSTS ou jogo xCloud está disponível.
 
 ## O que ainda não está implementado
 
-- Login Microsoft/Xbox, OAuth ou XSTS.
+- Xbox Live/XSTS e integração de OAuth autorizado com o serviço xCloud.
+- Validação real de OAuth/TLS no Xbox 360 físico.
 - Integração com o catálogo do Game Pass.
 - Sessão xCloud, WebRTC, decodificação H.264/Opus ou streaming.
 - Validação da execução real do XEX em Xbox 360 RGH/JTAG.

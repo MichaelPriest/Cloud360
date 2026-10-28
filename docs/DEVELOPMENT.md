@@ -105,13 +105,27 @@ implementação diretamente transplantável. Orbita é GPL-3.0 e
 Cloud360 é MIT; não copiar código sem resolver licenciamento.
 Ver ORBITA_REFERENCE.md.
 
+## OAuth Microsoft por código — implementado em fonte
+
+A aba CONTA possui OAuth 2.0 Device Authorization Grant (RFC 8628),
+com código e endereço de verificação na TV, intervalo de consulta,
+slow_down (+5 segundos), expiração, cancelamento e limpeza em memória.
+O backend usa POST HTTPS com TLS verificado, mas curl-xenon/mbedtls-xenon
+continuam desabilitados por padrão até testes no console.
+O ID público do aplicativo precisa ser registrado pelo operador e
+lido de game:/oauth-client.txt: não utilizamos IDs/segredos de
+outros aplicativos. Tokens ficam somente em memória até o logout;
+nenhuma persistência segura ou renovação foi implementada.
+O resultado OAuth não comprova acesso ao Xbox Live/XSTS nem xCloud.
+Leia [AUTH.md](AUTH.md).
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |
 |---|---|---|
 | 1 | HTTPS/TLS validado no hardware | Cliente HTTPS implementado em fonte; falta build com curl-xenon/mbedtls-xenon e teste real de CA/relógio |
 | 2 | Cliente HTTP/JSON | Parser e catálogo próprios implementados; integração TLS em hardware e fonte oficialmente autorizada continuam pendentes |
-| 3 | Autenticação OAuth Microsoft | Fluxos públicos/autorizados, consentimento do usuário, armazenamento seguro de tokens |
+| 3 | Autenticação OAuth Microsoft | Máquina de estados e POST em fonte; falta validar TLS no Xbox, tokens Xbox/XSTS e renovação/revogação |
 | 4 | Catálogo e busca | Dados reais carregados da rede, paginação, filtros, imagens otimizadas |
 | 5 | Biblioteca e favoritos | Estado da conta sincronizado, cache local com integridade |
 | 6 | Sessões na nuvem | Investigar APIs e protocolos autorizados; não presumir endpoints privados |

@@ -78,6 +78,20 @@ jobs:
             tests/test_catalog_runtime.c -o /tmp/cloud360-catalog-runtime
           /tmp/cloud360-catalog-runtime
 
+      - name: Test OAuth state, JSON and worker without XEX
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/oauth.c tests/test_oauth.c -o /tmp/cloud360-oauth
+          /tmp/cloud360-oauth
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/oauth_json.c tests/test_oauth_json.c \
+            -o /tmp/cloud360-oauth-json
+          /tmp/cloud360-oauth-json
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic -pthread \
+            src/oauth.c src/oauth_json.c src/oauth_runtime.c \
+            tests/test_oauth_runtime.c -o /tmp/cloud360-oauth-runtime
+          /tmp/cloud360-oauth-runtime
+
       - name: Checkout open XSDK
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
@@ -89,7 +103,7 @@ jobs:
           /tmp/cloud360-icons-tests
 
       - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c src/catalog.c src/catalog_runtime.c
+        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c src/catalog.c src/catalog_runtime.c src/oauth.c src/oauth_json.c src/oauth_runtime.c
 
       - name: Identify XSDK revision
         id: xsdk_revision

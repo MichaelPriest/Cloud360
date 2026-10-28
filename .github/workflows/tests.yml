@@ -103,6 +103,36 @@ jobs:
             tests/test_catalog_runtime.c -o /tmp/cloud360-catalog-runtime
           /tmp/cloud360-catalog-runtime
 
+      - name: Test OAuth RFC8628 flow and bounded token JSON
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/oauth.c tests/test_oauth.c -o /tmp/cloud360-oauth
+          /tmp/cloud360-oauth
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/oauth_json.c tests/test_oauth_json.c \
+            -o /tmp/cloud360-oauth-json
+          /tmp/cloud360-oauth-json
+
+      - name: Test asynchronous OAuth with mocked TLS transport
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic -pthread \
+            src/oauth.c src/oauth_json.c src/oauth_runtime.c \
+            tests/test_oauth_runtime.c -o /tmp/cloud360-oauth-runtime
+          /tmp/cloud360-oauth-runtime
+
+      - name: Test fail-closed OAuth HTTPS POST adapter
+        run: |
+          gcc -std=gnu17 -Wall -Wextra -Werror -pedantic \
+            src/https.c src/https_curl.c tests/test_https_post.c \
+            -pthread -o /tmp/cloud360-https-post-stub
+          /tmp/cloud360-https-post-stub
+          gcc -std=gnu17 -Wall -Wextra -Werror -pedantic \
+            -DCLOUD360_WITH_CURL=1 \
+            src/https.c src/https_curl.c tests/test_https_post.c \
+            -pthread $(pkg-config --cflags --libs libcurl) \
+            -o /tmp/cloud360-https-post-curl
+          /tmp/cloud360-https-post-curl
+
       - name: Checkout XSDK headers only
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
@@ -119,7 +149,8 @@ jobs:
             -I "$HOME/xsdk/include" \
             src/main.c src/render.c src/icons.c src/network.c \
             src/probe.c src/probe_platform.c src/https.c src/https_curl.c \
-            src/catalog.c src/catalog_runtime.c
+            src/catalog.c src/catalog_runtime.c src/oauth.c \
+            src/oauth_json.c src/oauth_runtime.c
 
       - name: Confirm no .xex is generated
         run: |

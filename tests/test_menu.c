@@ -144,7 +144,7 @@ static void test_network_refresh(void)
     assert(!menu.network_https_requested);
     release(&menu);
     press(&menu, CLOUD360_MENU_NEXT_TAB);
-    assert(menu.selected == CLOUD360_SECTION_ABOUT);
+    assert(menu.selected == CLOUD360_SECTION_ACCOUNT);
     assert(!menu.network_refresh_requested);
     assert(!menu.network_probe_requested);
     assert(!menu.network_https_requested);
@@ -184,6 +184,33 @@ static void test_catalog_navigation(void)
     assert(!menu.catalog_online_requested && !menu.catalog_local_requested);
 }
 
+static void test_account_login_actions(void)
+{
+    Cloud360Menu menu;
+    cloud360_menu_init(&menu);
+    for (uint32_t i=0; i<CLOUD360_SECTION_ACCOUNT; ++i)
+        press(&menu,CLOUD360_MENU_NEXT_TAB);
+    assert(menu.selected==CLOUD360_SECTION_ACCOUNT);
+    assert(!menu.account_begin_requested);
+
+    assert(!cloud360_menu_step(&menu,CLOUD360_MENU_SELECT));
+    assert(menu.account_begin_requested && !menu.content_focus);
+    assert(!cloud360_menu_step(&menu,CLOUD360_MENU_SELECT));
+    assert(!menu.account_begin_requested);
+    release(&menu);
+
+    assert(!cloud360_menu_step(&menu,CLOUD360_MENU_ACCOUNT_CANCEL));
+    assert(menu.account_cancel_requested);
+    release(&menu);
+    assert(!cloud360_menu_step(&menu,CLOUD360_MENU_ACCOUNT_LOGOUT));
+    assert(menu.account_logout_requested);
+    release(&menu);
+    press(&menu,CLOUD360_MENU_NEXT_TAB);
+    assert(menu.selected==CLOUD360_SECTION_ABOUT);
+    assert(!menu.account_cancel_requested && !menu.account_logout_requested);
+    assert(!menu.account_begin_requested);
+}
+
 static void test_priority_and_focus(void)
 {
     Cloud360Menu menu;
@@ -205,6 +232,7 @@ int main(void)
     test_settings();
     test_network_refresh();
     test_catalog_navigation();
+    test_account_login_actions();
     test_priority_and_focus();
     puts("Cloud360 controller navigation: PASS");
     return 0;

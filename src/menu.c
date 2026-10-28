@@ -36,6 +36,9 @@ void cloud360_menu_init(Cloud360Menu *menu)
     menu->network_https_requested = false;
     menu->catalog_local_requested = false;
     menu->catalog_online_requested = false;
+    menu->account_begin_requested = false;
+    menu->account_cancel_requested = false;
+    menu->account_logout_requested = false;
     menu->storage_error = false;
     cloud360_settings_defaults(&menu->settings);
 }
@@ -63,6 +66,9 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
     menu->network_https_requested = false;
     menu->catalog_local_requested = false;
     menu->catalog_online_requested = false;
+    menu->account_begin_requested = false;
+    menu->account_cancel_requested = false;
+    menu->account_logout_requested = false;
 
     if (pressed & CLOUD360_MENU_BACK)
         return true;
@@ -100,6 +106,21 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
         }
         if (pressed & CLOUD360_MENU_CATALOG_ONLINE) {
             menu->catalog_online_requested = true;
+            return false;
+        }
+    }
+
+    if (menu->selected == CLOUD360_SECTION_ACCOUNT) {
+        if (pressed & CLOUD360_MENU_ACCOUNT_CANCEL) {
+            menu->account_cancel_requested = true;
+            return false;
+        }
+        if (pressed & CLOUD360_MENU_ACCOUNT_LOGOUT) {
+            menu->account_logout_requested = true;
+            return false;
+        }
+        if (pressed & CLOUD360_MENU_SELECT) {
+            menu->account_begin_requested = true;
             return false;
         }
     }
