@@ -22,6 +22,7 @@
 #include "catalog_runtime.h"
 #include "oauth_runtime.h"
 #include "xbl_runtime.h"
+#include "session.h"
 #include "render.h"
 #include "settings.h"
 #include "ui.h"
@@ -49,6 +50,7 @@ static Cloud360Https secure_http;
 static Cloud360CatalogRuntime catalog_runtime;
 static Cloud360OAuthRuntime microsoft_login;
 static Cloud360XblRuntime xbox_authorization;
+static Cloud360Session game_session;
 
 static uint32_t milliseconds(void)
 {
@@ -91,7 +93,8 @@ static uint16_t controller_buttons(void)
     if (raw & INPUT_GAMEPAD_X)
         buttons |= CLOUD360_MENU_NETWORK_TEST |
                    CLOUD360_MENU_CATALOG_LOCAL |
-                   CLOUD360_MENU_ACCOUNT_CANCEL;
+                   CLOUD360_MENU_ACCOUNT_CANCEL |
+                   CLOUD360_MENU_SESSION_STOP;
     if (raw & INPUT_GAMEPAD_Y)
         buttons |= CLOUD360_MENU_NETWORK_HTTPS |
                    CLOUD360_MENU_CATALOG_ONLINE |
@@ -122,6 +125,7 @@ static void run_title(uint32_t width, uint32_t height)
     Cloud360UiState ui;
     cloud360_menu_init(&menu);
     cloud360_ui_init(&ui);
+    cloud360_session_init(&game_session);
 
     Cloud360Network network;
     cloud360_network_init(&network);
@@ -257,6 +261,24 @@ static void run_title(uint32_t width, uint32_t height)
             }
         }
 
+        /* Session orchestration is intentionally fail-closed until an
+         * authorized cloud transport + WebRTC/media backend exists.
+         * No HTTP call, mock session or fake video is started here. */
+        if (menu.selected == CLOUD360_SECTION_SESSION) {
+            if (menu.session_stop_requested)
+                cloud360_session_cancel(&game_session, now);
+            else if (menu.session_start_requested) {
+                Cloud360XblView current_xbl = { 0 };
+                if (!xbl_error)
+                    cloud360_xbl_runtime_snapshot(
+                        &xbox_authorization, &current_xbl);
+                /* A title from the local JSON is not considered playable. */
+                (void)cloud360_session_begin(&game_session, NULL,
+                    current_xbl.state == CLOUD360_XBL_AUTHORIZED,
+                    false, now);
+            }
+        }
+
         /* Check XAM's network only while the user views the Network tab.
          * Polling is throttled, so rendering is not tied to network traffic. */
         if (menu.selected == CLOUD360_SECTION_NETWORK) {
@@ -309,9 +331,16 @@ static void run_title(uint32_t width, uint32_t height)
             cloud360_xbl_runtime_snapshot(&xbox_authorization, &xbl_view);
         else
             xbl_view.state = CLOUD360_XBL_UNAVAILABLE;
+
+        const bool xsts_ready = xbl_view.state == CLOUD360_XBL_AUTHORIZED;
+        (void)cloud360_session_tick(&game_session, now, xsts_ready);
+        Cloud360SessionView session_view = { 0 };
+        cloud360_session_snapshot(&game_session, now, &session_view);
+
         cloud360_render(address, width, height, &menu, &ui,
                         &network, &probe_result, &https_result,
-                        &catalog_view, &login_view, &xbl_view);
+                        &catalog_view, &login_view, &xbl_view,
+                        &session_view);
         xsdk_present_end();
     }
 }

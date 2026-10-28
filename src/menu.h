@@ -14,6 +14,7 @@ enum {
     CLOUD360_SECTION_SETTINGS,
     CLOUD360_SECTION_NETWORK,
     CLOUD360_SECTION_ACCOUNT,
+    CLOUD360_SECTION_SESSION,
     CLOUD360_SECTION_ABOUT,
     CLOUD360_SECTION_COUNT,
     CLOUD360_CARD_COUNT = 3,
@@ -36,7 +37,8 @@ enum {
     CLOUD360_MENU_CATALOG_LOCAL = 1u << 11,
     CLOUD360_MENU_CATALOG_ONLINE = 1u << 12,
     CLOUD360_MENU_ACCOUNT_CANCEL = 1u << 13,
-    CLOUD360_MENU_ACCOUNT_LOGOUT = 1u << 14
+    CLOUD360_MENU_ACCOUNT_LOGOUT = 1u << 14,
+    CLOUD360_MENU_SESSION_STOP = 1u << 15
 };
 
 typedef struct {
@@ -56,6 +58,8 @@ typedef struct {
     bool account_begin_requested;
     bool account_cancel_requested;
     bool account_logout_requested;
+    bool session_start_requested;
+    bool session_stop_requested;
     bool storage_error;
     Cloud360Settings settings;
 } Cloud360Menu;

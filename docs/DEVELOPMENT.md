@@ -138,6 +138,24 @@ testado num Xbox 360; uma autorização XSTS genérica não prova direito de uso
 do Game Pass, nem garante acesso às APIs específicas do xCloud.
 Ver [XSTS.md](XSTS.md).
 
+## Sessões de jogo — coordenador independente do transporte
+
+O módulo `src/session.h`/`src/session.c` trata solicitação de
+sessão, provisionamento, fila, servidor disponível, sinalização,
+conexão, espera do primeiro quadro, reconexão e encerramento.
+Uma sessão só passa a `STREAMING` após evento `FIRST_VIDEO`
+gerado por um futuro receptor/decodificador real.
+
+Cada tentativa tem identificador de geração, rejeitando respostas
+atrasadas após cancelamento. Há limites de tempo separados para
+solicitação, provisionamento, fila, sinalização, vídeo e parada,
+além de máximo de duas reconexões. Consultar [SESSION.md](SESSION.md).
+
+A aba **SESSAO** expõe os estados. O executável ainda não possui
+um provedor de sessões conectado; pressionar A verifica apenas
+os pré-requisitos locais XSTS/transporte e retorna erro explícito.
+Não usa endpoints privados nem simula uma partida como funcional.
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |
@@ -148,7 +166,7 @@ Ver [XSTS.md](XSTS.md).
 | 4 | Xbox Live/XSTS | Handshake e erros implementados em fonte; falta validação em hardware e permissões de serviço |
 | 5 | Catálogo e busca | Dados reais autorizados carregados da rede, paginação, filtros, imagens otimizadas |
 | 5 | Biblioteca e favoritos | Estado da conta sincronizado, cache local com integridade |
-| 6 | Sessões na nuvem | Investigar APIs e protocolos autorizados; não presumir endpoints privados |
+| 6 | Sessões na nuvem | Máquina de estados com fila, timeouts e reconexão; faltam provedor autorizado e testes físicos |
 | 7 | WebRTC e transporte | Sinalização, ICE/STUN/TURN, DTLS/SRTP, baixa latência |
 | 8 | Vídeo e áudio | Viabilidade de decodificar H.264 e áudio no hardware Xenon |
 | 9 | Controle e desempenho | Envio de input, latência, reconexão, métricas e robustez |

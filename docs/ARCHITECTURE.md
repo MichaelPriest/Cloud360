@@ -40,6 +40,8 @@ Detalhes em ORBITA_REFERENCE.md.
 - `icons.c`: ícones próprios de 6×6 pixels usando U+2580/U+2584/U+2588.
 - `settings.c`: preferências visuais em `game:/cloud360.cfg`, sem credenciais.
 - `main.c`: inicialização da GPU/controle/XEX e loop de renderização.
+- `session.c`: estados de sessão, fila, sinalização, quadro de mídia,
+  reconexão, timeouts e cancelamento por geração. Nenhum servidor conectado.
 
 ## Referência de interface
 

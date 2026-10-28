@@ -206,9 +206,37 @@ static void test_account_login_actions(void)
     assert(menu.account_logout_requested);
     release(&menu);
     press(&menu,CLOUD360_MENU_NEXT_TAB);
-    assert(menu.selected==CLOUD360_SECTION_ABOUT);
+    assert(menu.selected==CLOUD360_SECTION_SESSION);
     assert(!menu.account_cancel_requested && !menu.account_logout_requested);
     assert(!menu.account_begin_requested);
+}
+
+static void test_session_actions(void)
+{
+    Cloud360Menu menu;
+    cloud360_menu_init(&menu);
+    for (uint32_t i=0; i<CLOUD360_SECTION_SESSION; ++i)
+        press(&menu, CLOUD360_MENU_NEXT_TAB);
+    assert(menu.selected == CLOUD360_SECTION_SESSION);
+    assert(!menu.session_start_requested);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_SELECT));
+    assert(menu.session_start_requested);
+    assert(!menu.content_focus);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_SELECT));
+    assert(!menu.session_start_requested);
+    release(&menu);
+
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_SESSION_STOP));
+    assert(menu.session_stop_requested);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_SESSION_STOP));
+    assert(!menu.session_stop_requested);
+    release(&menu);
+
+    press(&menu, CLOUD360_MENU_NEXT_TAB);
+    assert(menu.selected == CLOUD360_SECTION_ABOUT);
+    assert(!menu.session_start_requested && !menu.session_stop_requested);
+    press(&menu, CLOUD360_MENU_PREVIOUS_TAB);
+    assert(menu.selected == CLOUD360_SECTION_SESSION);
 }
 
 static void test_priority_and_focus(void)
@@ -233,6 +261,7 @@ int main(void)
     test_network_refresh();
     test_catalog_navigation();
     test_account_login_actions();
+    test_session_actions();
     test_priority_and_focus();
     puts("Cloud360 controller navigation: PASS");
     return 0;

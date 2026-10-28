@@ -98,7 +98,7 @@ static uint32_t contrast_panel(const Cloud360Menu *menu)
 }
 
 static const char *const tabs[CLOUD360_SECTION_COUNT] = {
-    "INICIO", "EXPLORAR", "BUSCAR", "BIBLIOTECA", "AJUSTES", "REDE", "CONTA", "SOBRE"
+    "INICIO", "EXPLORAR", "BUSCAR", "BIBLIOTECA", "AJUSTES", "REDE", "CONTA", "SESSAO", "SOBRE"
 };
 
 static const char *const hero_titles[CLOUD360_SECTION_COUNT] = {
@@ -109,6 +109,7 @@ static const char *const hero_titles[CLOUD360_SECTION_COUNT] = {
     "PERSONALIZE SUA EXPERIENCIA",
     "STATUS DA CONEXAO",
     "SUA CONTA MICROSOFT",
+    "SESSAO DE JOGO NA NUVEM",
     "O FUTURO NO XBOX 360"
 };
 
@@ -119,14 +120,16 @@ static const char *const hero_lines[CLOUD360_SECTION_COUNT] = {
     "Seus favoritos e jogos aparecerão apos o login.",
     "Ajustes visuais disponiveis nesta versao.",
     "Diagnostico real da rede local do console.",
-    "Autorizacao por codigo na TV. Ainda sem Xbox Live/XSTS.",
+    "Autorizacao por codigo na TV e etapa Xbox/XSTS experimental.",
+    "Protocolo de fila e reconexao em desenvolvimento; sem servidor conectado.",
     "Projeto independente, feito para Xbox 360 RGH/JTAG."
 };
 
 static const Cloud360Icon tab_icons[CLOUD360_SECTION_COUNT] = {
     CLOUD360_ICON_HOME, CLOUD360_ICON_GAMEPAD, CLOUD360_ICON_SEARCH,
     CLOUD360_ICON_LIBRARY, CLOUD360_ICON_SETTINGS,
-    CLOUD360_ICON_PC, CLOUD360_ICON_INFO, CLOUD360_ICON_INFO
+    CLOUD360_ICON_PC, CLOUD360_ICON_INFO, CLOUD360_ICON_CLOUD,
+    CLOUD360_ICON_INFO
 };
 
 static void header(const Cloud360Menu *menu, const Cloud360UiState *ui)
@@ -137,7 +140,7 @@ static void header(const Cloud360Menu *menu, const Cloud360UiState *ui)
     label(122, 32, 2, WHITE, a, "CLOUD360");
     label(123, 80, 1, SKY, a, "CLOUD GAMING PARA XBOX 360");
     label(1145, 40, 1, GREEN, a, "RGH");
-    label(1140, 68, 1, MUTED, a, "BETA 0.2");
+    label(1140, 68, 1, MUTED, a, "DEV");
 
     underline(32, 108, 1210, OUTLINE);
     for (uint32_t i = 0; i < CLOUD360_SECTION_COUNT; ++i) {
@@ -436,6 +439,54 @@ static void account_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
           "A LOGIN MICROSOFT       X CANCELAR       Y SAIR");
 }
 
+/* Session state is a local coordinator, NOT actual cloud playback.
+ * The backend is intentionally unavailable until the service and media
+ * protocols are implemented and tested on an Xbox 360 XSDK title. */
+static void session_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
+                         const Cloud360SessionView *session,
+                         const Cloud360XblView *xbl)
+{
+    const uint8_t alpha = cloud360_ui_page_alpha(ui);
+    const bool ready = session->phase == CLOUD360_SESSION_STREAMING;
+    const bool failed = session->phase == CLOUD360_SESSION_FAILED ||
+                        session->phase == CLOUD360_SESSION_NEED_XSTS ||
+                        session->phase == CLOUD360_SESSION_NO_TRANSPORT;
+    const uint32_t color = ready ? GREEN : failed ? GOLD : SKY;
+    rect(42, 398, 1192, 222, contrast_panel(menu));
+    cloud360_icon_draw(72, 419, CLOUD360_ICON_CLOUD, fade(color, alpha));
+    label(164, 412, 2, WHITE, alpha, "SESSAO XCLOUD - INFRAESTRUTURA");
+    label(164, 455, 1, contrast_text(menu), alpha, "ESTADO:");
+    label(305, 455, 1, color, alpha,
+          cloud360_session_phase_text(session->phase));
+
+    label(164, 486, 1, contrast_text(menu), alpha, "XBOX/XSTS:");
+    label(310, 486, 1,
+          xbl->state == CLOUD360_XBL_AUTHORIZED ? GREEN : GOLD,
+          alpha, xbl->state == CLOUD360_XBL_AUTHORIZED ?
+          "AUTORIZADO (SEM DIREITO XCLOUD VALIDADO)" : "NAO AUTORIZADO");
+
+    char line[120] = { 0 };
+    if (session->phase == CLOUD360_SESSION_QUEUED) {
+        (void)snprintf(line, sizeof line, "FILA: POSICAO %u  ESPERA ESTIMADA %u S",
+                       (unsigned)session->queue_position,
+                       (unsigned)session->queue_eta_seconds);
+    } else if (session->phase == CLOUD360_SESSION_RECONNECTING) {
+        (void)snprintf(line, sizeof line, "TENTATIVA DE RECONEXAO %u / %u",
+                       (unsigned)session->reconnect_attempts,
+                       (unsigned)CLOUD360_SESSION_MAX_RECONNECTS);
+    } else if (session->phase == CLOUD360_SESSION_FAILED) {
+        (void)snprintf(line, sizeof line, "ERRO: %s",
+                       cloud360_session_error_text(session->error));
+    } else {
+        (void)snprintf(line, sizeof line,
+                       "WEBRTC / H264 / OPUS: AINDA NAO INTEGRADOS");
+    }
+    label(164, 522, 1, failed ? GOLD : contrast_text(menu), alpha, line);
+    label(164, 571, 1, SKY, alpha, "A VERIFICAR PRE-REQUISITOS    X ENCERRAR");
+    label(164, 601, 1, contrast_text(menu), alpha,
+          "Nao inicia partidas. Nao usa API privada, token ou sessao ficticia.");
+}
+
 static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
 {
     const uint8_t a = cloud360_ui_page_alpha(ui);
@@ -445,7 +496,7 @@ static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
     label(165, 505, 1, contrast_text(menu), a,
           "Interface nativa Xbox 360 RGH/JTAG. Projeto comunitario independente.");
     label(165, 545, 1, GREEN, a,
-          "Proxima etapa: login, catalogo real e pesquisa de viabilidade do streaming.");
+          "Proxima etapa: provedor autorizado, sinalizacao e video no XEX.");
     label(165, 579, 1, MUTED, a,
           "Nao afiliado a Microsoft, Xbox ou Game Pass.");
 }
@@ -465,6 +516,8 @@ static const char *const modal_messages[CLOUD360_SECTION_COUNT][2] = {
       "A conexao com Xbox Cloud Gaming nao e testada." },
     { "Na aba CONTA, pressione A para solicitar um codigo Microsoft.",
       "Exige cliente registrado, TLS validado e arquivo CA." },
+    { "SESSAO mostra fila, negociacao e conexao como estados de preparo.",
+      "Nenhuma requisicao xCloud, WebRTC ou video ainda e executada." },
     { "Aplicativo experimental de codigo aberto.",
       "O funcionamento em hardware precisa ser testado." }
 };
@@ -503,7 +556,8 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
                      const Cloud360HttpsSnapshot *https,
                      const Cloud360CatalogView *catalog,
                      const Cloud360OAuthView *auth,
-                     const Cloud360XblView *xbl)
+                     const Cloud360XblView *xbl,
+                     const Cloud360SessionView *session)
 {
     xsdk_gpu_set_target(width, height);
     header(menu, ui);
@@ -522,6 +576,8 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
         network_page(menu, ui, network, probe, https);
     else if (menu->selected == CLOUD360_SECTION_ACCOUNT)
         account_page(menu, ui, auth, xbl);
+    else if (menu->selected == CLOUD360_SECTION_SESSION)
+        session_page(menu, ui, session, xbl);
     else
         about_page(menu, ui);
 

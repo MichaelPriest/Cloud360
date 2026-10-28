@@ -64,7 +64,8 @@ Veja o [plano de integração por módulos](docs/DEVELOPMENT.md), o
 [guia de catálogo JSON](docs/CATALOG.md) e a
 [análise do Orbita](docs/ORBITA_REFERENCE.md) e o
 [guia de login Microsoft](docs/AUTH.md) e
-[guia da integração Xbox/XSTS](docs/XSTS.md).
+[guia da integração Xbox/XSTS](docs/XSTS.md) e o
+[guia do ciclo de sessões de jogo](docs/SESSION.md).
 
 ### Catálogo JSON (fonte independente, não é Game Pass)
 
@@ -82,6 +83,23 @@ Após autorizar uma conta Microsoft, **A** tenta validar Xbox Live/XSTS;
 Sem curl-xenon/mbedtls-xenon o fluxo falha claramente, sem login fictício.
 Nenhum token Xbox Live/XSTS ou sessão xCloud foi validado no console real.
 Ainda não há catálogo Game Pass nem streaming.
+
+### Sessão de jogo: estados prontos para integrar
+
+O módulo `src/session.c` adiciona um coordenador nativo para pedido
+de sessão, provisionamento, fila com posição/ETA, sinalização,
+conexão, primeiro vídeo, reconexão e parada. Os eventos externos
+são identificados por geração, impedindo que respostas atrasadas
+reativem uma sessão cancelada. Os prazos usam relógio monotônico.
+
+Uma nova aba **SESSAO** mostra esses estados. O botão **A**
+verifica XSTS e disponibilidade do provedor; como não existe
+um provedor xCloud integrado neste momento, o aplicativo informa
+`PROVEDOR XCLOUD NAO INTEGRADO` sem iniciar rede ou criar sessão
+fictícia. **X** cancela/encerra o estado local.
+
+Os testes usam eventos de um backend simulado; o console continua
+sem WebRTC, vídeo H.264, áudio Opus ou catálogo de jogos autorizado.
 
 ## O que ainda não está implementado
 
