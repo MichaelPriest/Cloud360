@@ -112,6 +112,31 @@ static void test_settings(void)
     assert(!menu.content_focus);
 }
 
+static void test_network_refresh(void)
+{
+    Cloud360Menu menu;
+    cloud360_menu_init(&menu);
+    for (uint32_t n = 0; n < CLOUD360_SECTION_NETWORK; ++n)
+        press(&menu, CLOUD360_MENU_NEXT_TAB);
+    assert(menu.selected == CLOUD360_SECTION_NETWORK);
+    assert(!menu.content_focus);
+    assert(!menu.network_refresh_requested);
+
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_SELECT));
+    assert(menu.network_refresh_requested);
+    assert(menu.message_index == CLOUD360_NO_MESSAGE);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_SELECT));
+    assert(!menu.network_refresh_requested);
+    release(&menu);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_SELECT));
+    assert(menu.network_refresh_requested);
+    release(&menu);
+
+    press(&menu, CLOUD360_MENU_NEXT_TAB);
+    assert(menu.selected == CLOUD360_SECTION_ABOUT);
+    assert(!menu.network_refresh_requested);
+}
+
 static void test_priority_and_focus(void)
 {
     Cloud360Menu menu;
@@ -131,6 +156,7 @@ int main(void)
     test_cards_and_modal();
     test_search_and_about();
     test_settings();
+    test_network_refresh();
     test_priority_and_focus();
     puts("Cloud360 controller navigation: PASS");
     return 0;

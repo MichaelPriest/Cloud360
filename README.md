@@ -22,7 +22,7 @@ O código mostra o splash, inicializa a GPU e o vídeo em 720p, desenha a dashbo
 Inspirada na organização da prévia web do Xbox Cloud Gaming: barra superior, destaque editorial, cards de categorias, espaço para biblioteca e busca. **Não reproduz artes, logotipos ou código da Microsoft.** Utiliza ícones originais em pixel art (caracteres de bloco da fonte XSDK).
 
 - **Tela:** 1280×720, tema azul-marinho/azul elétrico, indicadores de seleção e janelas de aviso.
-- **Abas:** Início, Explorar, Buscar, Biblioteca, Ajustes e Sobre.
+- **Abas:** Início, Explorar, Buscar, Biblioteca, Ajustes, Rede e Sobre.
 - **Controle:** esquerda/direita escolhem aba, baixo ou A entra nos cards, esquerda/direita troca card, cima ou B retorna. LB/RB mudam aba de qualquer lugar; Back encerra o aplicativo. O analógico esquerdo também navega.
 - **Configurações disponíveis:** animações ligadas/desligadas, iluminação ambiente ligada/desligada, alto contraste, dicas na tela e restaurar padrões. Altere com A ou direita, e B retorna. As opções alteram a interface de verdade.
 - **Persistência:** `game:/cloud360.cfg` na pasta do executável, sem salvar senha ou token. Se a mídia estiver protegida contra gravação, a interface mostra o aviso e os ajustes permanecem ativos apenas durante a execução.
@@ -37,21 +37,20 @@ gcc -std=c17 -Wall -Wextra -Werror -pedantic src/settings.c src/menu.c src/ui.c 
 gcc -std=c17 -Wall -Wextra -Werror -pedantic src/settings.c tests/test_settings.c -o /tmp/cloud360-settings && /tmp/cloud360-settings
 ```
 
-O GitHub Actions também valida a renderização de ícones via código e a sintaxe das APIs do XSDK antes de compilar o .xex.
+O workflow de testes valida navegação, rede, configurações, ícones e sintaxe XSDK sem criar o .xex. O build de release será feito apenas quando solicitado.
 
-## Xenia Canary — build experimental
+## Desenvolvimento sem gerar XEX
 
-O XSDK precisa de um controlador de vídeo que o Xenia não emula. O Cloud360
-agora gera **dois XEX independentes**: `cloud360.xex` para o Xbox 360 real
-e `cloud360_xenia.xex` para tentar apresentar quadros no Xenia Canary
-através do mecanismo `VdSwap`.
+**A partir desta etapa não há compilação automática de XEX.** Commits executam
+apenas testes Linux e verificação de sintaxe; a construção do executável
+para o Xbox 360 real fica disponível só via GitHub Actions manual, quando for
+solicitada.
 
-O fallback usa uma função interna do XSDK (`xsdk_gpu_swap`), de modo que
-o GitHub Actions fixa a versão do SDK utilizada. A compilação e os testes
-automatizados não garantem que a imagem aparecerá no emulador: **a execução
-real em Xenia precisa ser comprovada**.
+Foi integrada uma aba **REDE**, com leitura real do link e do IPv4 local
+pela API XAM via XSDK, indicação de erros e atualização manual pelo botão A.
+Esse diagnóstico **não comprova acesso à internet ou serviço xCloud**.
 
-Consulte [o guia para o Xenia](docs/XENIA.md) antes de executar.
+Veja o [plano de integração por módulos](docs/DEVELOPMENT.md).
 
 ## O que ainda não está implementado
 
@@ -150,9 +149,9 @@ Um build bem-sucedido não garante que o programa funcione em todas as configura
 
 ## Próximas etapas
 
-1. Compilar o protótipo e corrigir qualquer erro real.
-2. Testar a inicialização e o menu na Aurora.
-3. Integrar catálogo real quando houver um cliente de autenticação funcional.
+1. Integrar rede segura, HTTP e catálogo progressivamente sem gerar o XEX.
+2. Implementar e testar os módulos de autenticação e navegação.
+3. Realizar o build XEX e testar na Aurora somente quando solicitado.
 4. Pesquisar implementação e viabilidade de rede, WebRTC, vídeo H.264, áudio Opus e controle para streaming do xCloud.
 
 Cloud360 é um projeto independente, não afiliado nem endossado pela Microsoft, Xbox ou pelos projetos de referência.

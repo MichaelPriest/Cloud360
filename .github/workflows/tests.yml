@@ -1,0 +1,75 @@
+name: Cloud360 Source Tests (No XEX)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/tests.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Linux unit tests and XSDK header check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Cloud360
+        uses: actions/checkout@v4
+
+      - name: Run menu test
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/settings.c src/menu.c tests/test_menu.c -o /tmp/cloud360-menu
+          /tmp/cloud360-menu
+
+      - name: Run animation test
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/settings.c src/menu.c src/ui.c tests/test_ui.c -o /tmp/cloud360-ui
+          /tmp/cloud360-ui
+
+      - name: Run settings test
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/settings.c tests/test_settings.c -o /tmp/cloud360-settings
+          /tmp/cloud360-settings
+
+      - name: Run network state machine test
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/network.c tests/test_network.c -o /tmp/cloud360-network
+          /tmp/cloud360-network
+
+      - name: Checkout XSDK headers only
+        run: |
+          git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
+
+      - name: Run icon test
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            -I "$HOME/xsdk/include" src/icons.c tests/test_icons.c -o /tmp/cloud360-icons
+          /tmp/cloud360-icons
+
+      - name: Check native console source syntax
+        run: |
+          gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only \
+            -I "$HOME/xsdk/include" \
+            src/main.c src/render.c src/icons.c src/network.c
+
+      - name: Confirm no .xex is generated
+        run: |
+          if find . -type f -name '*.xex' | grep -q .; then
+            echo "Unexpected XEX in source-only CI"
+            exit 1
+          fi
+          echo "Source checks passed. No Xbox binary built."

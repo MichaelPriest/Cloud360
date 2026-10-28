@@ -96,7 +96,7 @@ static uint32_t contrast_panel(const Cloud360Menu *menu)
 }
 
 static const char *const tabs[CLOUD360_SECTION_COUNT] = {
-    "INICIO", "EXPLORAR", "BUSCAR", "BIBLIOTECA", "AJUSTES", "SOBRE"
+    "INICIO", "EXPLORAR", "BUSCAR", "BIBLIOTECA", "AJUSTES", "REDE", "SOBRE"
 };
 
 static const char *const hero_titles[CLOUD360_SECTION_COUNT] = {
@@ -105,6 +105,7 @@ static const char *const hero_titles[CLOUD360_SECTION_COUNT] = {
     "PESQUISAR JOGOS",
     "SUA BIBLIOTECA",
     "PERSONALIZE SUA EXPERIENCIA",
+    "STATUS DA CONEXAO",
     "O FUTURO NO XBOX 360"
 };
 
@@ -114,12 +115,14 @@ static const char *const hero_lines[CLOUD360_SECTION_COUNT] = {
     "Busca disponivel quando o catalogo estiver conectado.",
     "Seus favoritos e jogos aparecerão apos o login.",
     "Ajustes visuais disponiveis nesta versao.",
+    "Diagnostico real da rede local do console.",
     "Projeto independente, feito para Xbox 360 RGH/JTAG."
 };
 
 static const Cloud360Icon tab_icons[CLOUD360_SECTION_COUNT] = {
     CLOUD360_ICON_HOME, CLOUD360_ICON_GAMEPAD, CLOUD360_ICON_SEARCH,
-    CLOUD360_ICON_LIBRARY, CLOUD360_ICON_SETTINGS, CLOUD360_ICON_INFO
+    CLOUD360_ICON_LIBRARY, CLOUD360_ICON_SETTINGS,
+    CLOUD360_ICON_PC, CLOUD360_ICON_INFO
 };
 
 static void header(const Cloud360Menu *menu, const Cloud360UiState *ui)
@@ -289,6 +292,33 @@ static void settings_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
           : "Preferencias salvas na pasta do aplicativo, quando disponivel.");
 }
 
+/* XSDK queries XAM's real Ethernet/link and IPv4 state. An IP address does
+ * NOT mean Microsoft authentication, internet access, or xCloud support. */
+static void network_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
+                         const Cloud360Network *net)
+{
+    const uint8_t a = cloud360_ui_page_alpha(ui);
+    rect(42, 424, 1192, 194, contrast_panel(menu));
+
+    const bool has_ip = net->status == CLOUD360_NET_LOCAL_IP;
+    const bool link = (net->link_flags & 0x01u) != 0;
+    const uint32_t color = has_ip ? GREEN :
+                           net->status == CLOUD360_NET_ERROR ? GOLD : SKY;
+
+    cloud360_icon_draw(72, 450, CLOUD360_ICON_PC, fade(color, a));
+    label(162, 439, 2, WHITE, a, "DIAGNOSTICO DO CONSOLE");
+    label(165, 490, 1, WHITE, a, "ESTADO:");
+    label(280, 490, 1, color, a, cloud360_network_status_text(net->status));
+    label(165, 523, 1, contrast_text(menu), a, "LINK:");
+    label(280, 523, 1, color, a, link ? "ATIVO" : "INATIVO / INDEFINIDO");
+    label(515, 523, 1, contrast_text(menu), a, "IPV4:");
+    label(600, 523, 1, has_ip ? GREEN : MUTED, a,
+          has_ip ? net->ipv4 : "NAO DISPONIVEL");
+    label(165, 566, 1, SKY, a, "A  VERIFICAR NOVAMENTE");
+    label(165, 599, 1, contrast_text(menu), a,
+          "IP local nao confirma acesso a internet ou xCloud.");
+}
+
 static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
 {
     const uint8_t a = cloud360_ui_page_alpha(ui);
@@ -314,6 +344,8 @@ static const char *const modal_messages[CLOUD360_SECTION_COUNT][2] = {
       "Autenticacao Microsoft/Xbox sera uma etapa separada." },
     { "As configuracoes visuais ja podem ser alteradas.",
       "Feche esta janela e entre em Ajustes para modifica-las." },
+    { "O diagnostico da rede local esta disponivel.",
+      "A conexao com Xbox Cloud Gaming nao e testada." },
     { "Aplicativo experimental de codigo aberto.",
       "O funcionamento em hardware precisa ser testado." }
 };
@@ -346,7 +378,8 @@ static void footer(const Cloud360Menu *menu, const Cloud360UiState *ui)
 }
 
 void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
-                     const Cloud360Menu *menu, const Cloud360UiState *ui)
+                     const Cloud360Menu *menu, const Cloud360UiState *ui,
+                     const Cloud360Network *network)
 {
     xsdk_gpu_set_target(width, height);
     header(menu, ui);
@@ -361,6 +394,8 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
         search_page(menu, ui);
     else if (menu->selected == CLOUD360_SECTION_SETTINGS)
         settings_page(menu, ui);
+    else if (menu->selected == CLOUD360_SECTION_NETWORK)
+        network_page(menu, ui, network);
     else
         about_page(menu, ui);
 

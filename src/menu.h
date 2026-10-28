@@ -12,6 +12,7 @@ enum {
     CLOUD360_SECTION_SEARCH,
     CLOUD360_SECTION_LIBRARY,
     CLOUD360_SECTION_SETTINGS,
+    CLOUD360_SECTION_NETWORK,
     CLOUD360_SECTION_ABOUT,
     CLOUD360_SECTION_COUNT,
     CLOUD360_CARD_COUNT = 3,
@@ -39,6 +40,7 @@ typedef struct {
     uint16_t previous_buttons;
     bool content_focus;
     bool settings_dirty;
+    bool network_refresh_requested;
     bool storage_error;
     Cloud360Settings settings;
 } Cloud360Menu;

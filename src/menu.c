@@ -30,6 +30,7 @@ void cloud360_menu_init(Cloud360Menu *menu)
     menu->previous_buttons = 0;
     menu->content_focus = false;
     menu->settings_dirty = false;
+    menu->network_refresh_requested = false;
     menu->storage_error = false;
     cloud360_settings_defaults(&menu->settings);
 }
@@ -52,6 +53,7 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
     const uint16_t pressed = (uint16_t)(buttons & (uint16_t)~menu->previous_buttons);
     menu->previous_buttons = buttons;
     menu->settings_dirty = false;
+    menu->network_refresh_requested = false;
 
     if (pressed & CLOUD360_MENU_BACK)
         return true;
@@ -91,7 +93,10 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
         if (pressed & (CLOUD360_MENU_DOWN | CLOUD360_MENU_SELECT)) {
             if (has_content(menu->selected))
                 menu->content_focus = true;
-            else if (pressed & CLOUD360_MENU_SELECT)
+            else if (menu->selected == CLOUD360_SECTION_NETWORK) {
+                if (pressed & CLOUD360_MENU_SELECT)
+                    menu->network_refresh_requested = true;
+            } else if (pressed & CLOUD360_MENU_SELECT)
                 menu->message_index = menu->selected;
         }
         return false;
