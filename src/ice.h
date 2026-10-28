@@ -44,6 +44,16 @@ bool cloud360_ice_build_check(
     Cloud360IceHmacSha1 hmac, void *crypto_context,
     uint8_t *packet, size_t capacity, size_t *written);
 
+/* RFC 7675 consent freshness sends a Binding Request with a NEW
+ * cryptographically random transaction ID for every attempt. This is
+ * distinct from an ICE connectivity check and does not nominate peers. */
+bool cloud360_ice_build_consent_request(
+    const char *local_ufrag, const char *remote_ufrag,
+    const char *remote_password,
+    const uint8_t transaction_id[CLOUD360_STUN_TRANSACTION_LEN],
+    Cloud360IceHmacSha1 hmac, void *crypto_context,
+    uint8_t *packet, size_t capacity, size_t *written);
+
 /* Response authenticated with the REMOTE ICE password, matching the
  * same transaction ID. Requires MESSAGE-INTEGRITY (HMAC-SHA1).
  * A valid response is not ICE nomination, consent or DTLS trust. */

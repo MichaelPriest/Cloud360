@@ -130,6 +130,23 @@ equivalem a uma conexão WebRTC. O console continua sem sessão xCloud
 real, ICE autenticado, DTLS-SRTP, vídeo H.264, áudio Opus ou catálogo
 de jogos autorizado. Não há dependências GPL incorporadas.
 
+### Consentimento de envio ICE — RFC 7675
+
+O módulo `src/ice_consent.c` prepara a verificação periódica
+de consentimento após a **nomeação real de um par por um agente ICE
+completo**. Exige confirmação explícita do par, não permite mídia até
+uma resposta STUN autenticada, emite verificações individuais
+sem retransmissão a intervalos aleatórios de 4 a 6 segundos e
+bloqueia a emissão caso transcorram 30 segundos sem consentimento.
+Verifica origem, transaction ID, HMAC, rejeita repetição e
+invalida as credenciais após expiração, revogação ou cancelamento.
+
+O módulo ainda **não está conectado ao executável do console**,
+pois o ICE completo com nomination, DTLS-SRTP e streaming não
+foi integrado. O código de testes usa OpenSSL e CSPRNG simulado
+somente em ambiente Linux; produção exige CSPRNG e mbedTLS
+adequados ao XSDK. Não foi gerado XEX.
+
 ## O que ainda não está implementado
 
 - Validação de Xbox Live/XSTS com servidor real e conta autorizada no

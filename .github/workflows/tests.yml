@@ -172,6 +172,13 @@ jobs:
             tests/test_ice_agent.c -lcrypto -o /tmp/cloud360-ice-agent
           /tmp/cloud360-ice-agent
 
+      - name: Test ICE consent freshness, media gating and expiry (RFC 7675)
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/ice.c src/ice_consent.c \
+            tests/test_ice_consent.c -lcrypto -o /tmp/cloud360-consent
+          /tmp/cloud360-consent
+
       - name: Test nonblocking IPv4 UDP loopback (no external network)
         run: |
           gcc -std=gnu17 -Wall -Wextra -Werror -pedantic \
@@ -205,7 +212,7 @@ jobs:
             src/oauth_json.c src/oauth_runtime.c \
             src/xbl.c src/xbl_runtime.c src/session.c \
             src/rtc.c src/stun.c src/ice.c src/ice_agent.c \
-            src/ice_crypto.c src/udp.c
+            src/ice_consent.c src/ice_crypto.c src/udp.c
 
       - name: Confirm no .xex is generated
         run: |

@@ -94,6 +94,18 @@ conectividade bidirecional, consentimento, nomination ou TURN.
 A UI SESSAO continua com o provedor desativado.
 Mais detalhes em [ICE_UDP.md](ICE_UDP.md).
 
+## Consentimento STUN para transmissão futura
+
+A segurança do envio de mídia exige, além do checklist ICE,
+consentimento contínuo do outro terminal. O controlador
+`src/ice_consent.c` segue o [RFC 7675](https://www.rfc-editor.org/rfc/rfc7675):
+intervalos aleatórios de 4–6 segundos, 30 segundos de
+validade, uma tentativa por ID de transação e revogação
+imediata quando uma sessão for encerrada por componente
+confiável. A UI **não libera mídia por conta própria**.
+O módulo está testado apenas com callbacks simulados;
+não existe ligação a um serviço real.
+
 ## Integração ao coordenador de sessões
 
 `cloud360_session_remote_sdp()` valida a resposta SDP e registra

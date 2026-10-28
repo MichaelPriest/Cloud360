@@ -94,6 +94,40 @@ O código não implementa nomination/consent, ICE role conflict,
 checagem dos pares de origem ou validação do certificado DTLS.
 Uma resposta STUN autenticada não autoriza streaming.
 
+## Consent freshness e bloqueio de mídia (RFC 7675)
+
+`src/ice_consent.[ch]` adiciona um controlador independente
+para **um único par IPv4/UDP já nomeado por um ICE completo**.
+A configuração exige `selected_pair_confirmed`, mas o programa
+principal ainda **não possui esse provedor**, portanto não o inicia.
+
+- Nenhum envio de mídia é liberado até chegar resposta Binding
+  autenticada com origem/endereço corretos e transaction ID ativo.
+- Cada solicitação usa ID de 96 bits novo gerado por CSPRNG,
+  não reutiliza IDs de solicitações anteriores e **não é
+  retransmitida**. Conserva até oito transações recentes para
+  respostas fora de ordem e detecção de replays.
+- Intervalos aleatórios obrigatórios de **4–6 segundos**
+  e validade máxima do consentimento de **30 segundos**.
+- `cloud360_consent_can_send()` avalia a autorização temporal
+  a cada chamada; após 30 segundos sem resposta válida,
+  retorna false **mesmo antes de o próximo tick executar**.
+- Expiração, revogação e cancelamento limpam senha ICE, IDs e
+  callbacks; uma resposta tardia não reativa o consentimento.
+- As requisições de consentimento usam USERNAME,
+  MESSAGE-INTEGRITY e FINGERPRINT, **sem USE-CANDIDATE**,
+  PRIORITY ou atributos de papel ICE. Esse fluxo é distinto
+  dos checks de seleção.
+- Testes host OpenSSL cobrem integridade HMAC, consentimento
+  inicial, renovação, alteração de pacote, origem incorreta,
+  replays, atraso, falha CSPRNG, cancelamento e rollover.
+
+**Limites:** ainda falta agente ICE completo, negociação
+de par nomeado e DTLS/SRTP. Nem um STUN válido nem
+`can_send_media=true` significam WebRTC estabelecido ou
+autorização para xCloud. Somente o futuro transmissor de mídia
+poderá integrar essa proteção aos seus envios.
+
 ## Próximos requisitos antes de aceitar um par
 
 1. Integrar o backend seguro de sessões do serviço autorizado,

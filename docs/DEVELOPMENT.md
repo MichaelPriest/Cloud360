@@ -220,6 +220,20 @@ Faltam nomeação, controle de papéis ICE, consent freshness,
 DTLS-SRTP e decodificação de mídia no console.
 Ver [ICE_UDP.md](ICE_UDP.md).
 
+## ICE — consentimento RFC 7675 (etapa adicional)
+
+`src/ice_consent.c` controla o consentimento de envio por
+par nomeado, com requisições STUN individuais de 4–6 segundos
+e bloqueio da mídia após 30 segundos sem resposta
+autenticada da origem esperada. Ele mantém IDs das transações
+pendentes, rejeita respostas reproduzidas e limpa credenciais
+ao cancelar, expirar ou revogar.
+A produção do XSDK permanece **sem instância desse módulo**;
+o futuro adaptador de ICE precisa primeiro nomear um par,
+associar a origem corretamente e integrar os callbacks.
+A autorização Xbox/XSTS também não prova direito de uso
+do serviço. Ver [ICE_UDP.md](ICE_UDP.md).
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |

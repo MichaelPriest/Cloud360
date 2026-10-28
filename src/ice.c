@@ -146,6 +146,71 @@ bool cloud360_ice_build_check(
     return true;
 }
 
+bool cloud360_ice_build_consent_request(
+    const char *local_ufrag, const char *remote_ufrag,
+    const char *remote_password, const uint8_t transaction_id[12],
+    Cloud360IceHmacSha1 hmac, void *context,
+    uint8_t *packet, size_t capacity, size_t *written)
+{
+    if (written) *written = 0;
+    if (!written || !packet || !transaction_id || !hmac ||
+        !valid_ice_credential(local_ufrag,CLOUD360_ICE_UFRAG_MAX,4) ||
+        !valid_ice_credential(remote_ufrag,CLOUD360_ICE_UFRAG_MAX,4) ||
+        !valid_ice_credential(remote_password,CLOUD360_ICE_PWD_MAX,22) ||
+        capacity < CLOUD360_STUN_HEADER_LEN)
+        return false;
+    if (capacity > CLOUD360_STUN_PACKET_MAX)
+        capacity = CLOUD360_STUN_PACKET_MAX;
+    uint8_t nonzero = 0;
+    for (size_t i = 0; i < 12; ++i) nonzero |= transaction_id[i];
+    if (!nonzero) return false;
+
+    memset(packet, 0, CLOUD360_STUN_HEADER_LEN);
+    put16(packet, STUN_BINDING_REQUEST);
+    put32(packet + 4, STUN_MAGIC_COOKIE);
+    memcpy(packet + 8, transaction_id, 12);
+    char username[CLOUD360_ICE_USERNAME_MAX + 1] = { 0 };
+    const size_t remote_length = strlen(remote_ufrag);
+    const size_t local_length = strlen(local_ufrag);
+    memcpy(username, remote_ufrag, remote_length);
+    username[remote_length] = ':';
+    memcpy(username + remote_length + 1, local_ufrag, local_length);
+    const size_t username_length = remote_length + 1 + local_length;
+    size_t offset = CLOUD360_STUN_HEADER_LEN;
+    if (!append_attr(packet, capacity, &offset, ATTR_USERNAME,
+                     (const uint8_t *)username, username_length) ||
+        capacity - offset < 32u)
+        return false;
+
+    /* RFC 8489 HMAC input ends before MESSAGE-INTEGRITY; the
+     * temporary STUN length includes that attribute. */
+    const size_t integrity_at = offset;
+    put16(packet + 2, (uint16_t)(integrity_at + 24u - 20u));
+    uint8_t digest[CLOUD360_ICE_HMAC_SHA1_LEN] = { 0 };
+    const bool signed_ok = hmac(context,(const uint8_t *)remote_password,
+                                strlen(remote_password),
+                                packet, integrity_at, digest);
+    if (!signed_ok) {
+        volatile uint8_t *p = digest;
+        for (size_t i = 0; i < sizeof digest; ++i) p[i] = 0;
+        return false;
+    }
+    const bool appended = append_attr(packet,capacity,&offset,
+                                      ATTR_MESSAGE_INTEGRITY,
+                                      digest,sizeof digest);
+    volatile uint8_t *clear = digest;
+    for (size_t i = 0; i < sizeof digest; ++i) clear[i] = 0;
+    if (!appended) return false;
+
+    put16(packet + 2,(uint16_t)(offset + 8u - 20u));
+    uint8_t crc[4];
+    put32(crc,fingerprint_crc(packet,offset));
+    if (!append_attr(packet,capacity,&offset,ATTR_FINGERPRINT,crc,4))
+        return false;
+    *written = offset;
+    return true;
+}
+
 bool cloud360_ice_verify_binding_response(
     const uint8_t *packet, size_t length, const uint8_t transaction_id[12],
     const char *password, Cloud360IceHmacSha1 hmac,
