@@ -1,12 +1,12 @@
 # Cloud360 — protótipo nativo para Xbox 360
 
-**Estado atual:** aplicativo experimental para Xbox 360 RGH/JTAG com interface Azul Cloud360 **0.2**, inspirada na organização da prévia web do Xbox Cloud Gaming (2026). Inclui navegação superior, categorias, cards, ícones próprios, configurações reais e animações suaves. **Não é ainda um cliente funcional do xCloud:** não há login Microsoft, catálogo conectado, vídeo nem streaming. A compilação e a execução em hardware desta versão precisam ser verificadas separadamente.
+**Estado atual:** aplicativo experimental para Xbox 360 RGH/JTAG com interface Azul Cloud360 **0.2**, inspirada na organização da prévia web do Xbox Cloud Gaming (2026). Inclui navegação superior, categorias, cards, ícones próprios, configurações reais e animações suaves. **Não é ainda um cliente funcional do xCloud:** não há login Microsoft, catálogo conectado, vídeo nem streaming. O **build XEX da versão 0.2 foi concluído com sucesso** no GitHub Actions em 28/10/2026; a execução em hardware ainda precisa ser testada.
 
 ## Objetivo desta etapa
 
 Criar uma primeira aplicação nativa que possa ser iniciada pela Aurora sem iniciar o XeLL manualmente. O projeto usa a toolchain comunitária [xsdk](https://github.com/xenosworks/xsdk).
 
-O código mostra o splash, inicializa a GPU e o vídeo em 720p, desenha a dashboard Azul Cloud360 com a API de texto do XSDK e permite navegação animada e configuração pelo controle. As opções de streaming exibem avisos de que ainda não estão implementadas. **Esta nova versão ainda depende de confirmação do build e teste em console real.**
+O código mostra o splash, inicializa a GPU e o vídeo em 720p, desenha a dashboard Azul Cloud360 com a API de texto do XSDK e permite navegação animada e configuração pelo controle. As opções de streaming exibem avisos de que ainda não estão implementadas. **O build XEX foi aprovado; o teste em console real ainda está pendente.**
 
 ## O que está incluído
 
@@ -44,9 +44,17 @@ O GitHub Actions também valida a renderização de ícones via código e a sint
 - Login Microsoft/Xbox, OAuth ou XSTS.
 - Integração com o catálogo do Game Pass.
 - Sessão xCloud, WebRTC, decodificação H.264/Opus ou streaming.
-- Binário XEX compilado e validado em hardware.
+- Validação da execução real do XEX em Xbox 360 RGH/JTAG.
 
 **Nunca publique senhas, cookies, tokens ou credenciais de conta no repositório.**
+
+## Versão compilada e testes
+
+- **Versão:** 0.2.0.0, XEX2 compilado para PowerPC com XSDK.
+- **GitHub Actions:** https://github.com/MichaelPriest/Cloud360/actions/runs/40740740069
+- **Artifact:** `Cloud360-XEX` na execução acima; o artefato do GitHub expira após 14 dias.
+- **Testes CI:** navegação, transições, gravação de preferências, ícones, sintaxe e compilação XSDK aprovados.
+- **Hardware:** ainda não validado em Xbox 360 real. Não instalar como dashboard padrão; testar pelo gerenciador da Aurora e manter possibilidade de retornar ao sistema.
 
 ## Requisitos
 
