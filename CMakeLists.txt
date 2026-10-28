@@ -9,6 +9,8 @@ add_executable(cloud360
     src/icons.c
     src/settings.c
     src/network.c
+    src/probe.c
+    src/probe_platform.c
 )
 set_target_properties(cloud360 PROPERTIES C_STANDARD 17 C_EXTENSIONS ON)
 target_compile_options(cloud360 PRIVATE -Wall -Wextra -Werror)

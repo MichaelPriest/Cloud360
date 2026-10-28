@@ -132,9 +132,16 @@ static void test_network_refresh(void)
     assert(menu.network_refresh_requested);
     release(&menu);
 
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_NETWORK_TEST));
+    assert(menu.network_probe_requested);
+    assert(!menu.network_refresh_requested);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_NETWORK_TEST));
+    assert(!menu.network_probe_requested);
+    release(&menu);
     press(&menu, CLOUD360_MENU_NEXT_TAB);
     assert(menu.selected == CLOUD360_SECTION_ABOUT);
     assert(!menu.network_refresh_requested);
+    assert(!menu.network_probe_requested);
 }
 
 static void test_priority_and_focus(void)

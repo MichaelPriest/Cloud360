@@ -294,29 +294,41 @@ static void settings_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
 
 /* XSDK queries XAM's real Ethernet/link and IPv4 state. An IP address does
  * NOT mean Microsoft authentication, internet access, or xCloud support. */
+/* DNS/TCP proves only transport reachability, not Xbox Live or xCloud. */
 static void network_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
-                         const Cloud360Network *net)
+                         const Cloud360Network *net,
+                         const Cloud360ProbeSnapshot *probe)
 {
     const uint8_t a = cloud360_ui_page_alpha(ui);
-    rect(42, 424, 1192, 194, contrast_panel(menu));
-
+    rect(42, 390, 1192, 226, contrast_panel(menu));
     const bool has_ip = net->status == CLOUD360_NET_LOCAL_IP;
     const bool link = (net->link_flags & 0x01u) != 0;
-    const uint32_t color = has_ip ? GREEN :
-                           net->status == CLOUD360_NET_ERROR ? GOLD : SKY;
+    const uint32_t local_color = has_ip ? GREEN :
+                                 net->status == CLOUD360_NET_ERROR ? GOLD : SKY;
+    const bool tcp_ok = probe->status == CLOUD360_PROBE_CONNECTED;
+    const bool failed = probe->status == CLOUD360_PROBE_DNS_ERROR ||
+                        probe->status == CLOUD360_PROBE_TCP_ERROR ||
+                        probe->status == CLOUD360_PROBE_THREAD_ERROR;
+    const uint32_t remote_color = tcp_ok ? GREEN : failed ? GOLD : SKY;
 
-    cloud360_icon_draw(72, 450, CLOUD360_ICON_PC, fade(color, a));
-    label(162, 439, 2, WHITE, a, "DIAGNOSTICO DO CONSOLE");
-    label(165, 490, 1, WHITE, a, "ESTADO:");
-    label(280, 490, 1, color, a, cloud360_network_status_text(net->status));
-    label(165, 523, 1, contrast_text(menu), a, "LINK:");
-    label(280, 523, 1, color, a, link ? "ATIVO" : "INATIVO / INDEFINIDO");
-    label(515, 523, 1, contrast_text(menu), a, "IPV4:");
-    label(600, 523, 1, has_ip ? GREEN : MUTED, a,
+    cloud360_icon_draw(72, 412, CLOUD360_ICON_PC, fade(local_color, a));
+    label(160, 404, 2, WHITE, a, "REDE DO XBOX 360");
+    label(900, 419, 1, MUTED, a, "www.xbox.com:443");
+    label(165, 459, 1, WHITE, a, "LOCAL:");
+    label(280, 459, 1, local_color, a,
+          cloud360_network_status_text(net->status));
+    label(165, 489, 1, contrast_text(menu), a, "LINK:");
+    label(280, 489, 1, local_color, a,
+          link ? "ATIVO" : "INATIVO / INDEFINIDO");
+    label(516, 489, 1, contrast_text(menu), a, "IPV4:");
+    label(610, 489, 1, has_ip ? GREEN : MUTED, a,
           has_ip ? net->ipv4 : "NAO DISPONIVEL");
-    label(165, 566, 1, SKY, a, "A  VERIFICAR NOVAMENTE");
-    label(165, 599, 1, contrast_text(menu), a,
-          "IP local nao confirma acesso a internet ou xCloud.");
+    label(165, 526, 1, contrast_text(menu), a, "DNS/TCP:");
+    label(309, 526, 1, remote_color, a,
+          cloud360_probe_status_text(probe->status));
+    label(165, 568, 1, SKY, a, "A  ATUALIZAR REDE       X  TESTAR DNS + TCP");
+    label(165, 593, 1, contrast_text(menu), a,
+          "TCP 443 nao valida TLS, Xbox Live, login ou streaming.");
 }
 
 static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
@@ -379,7 +391,8 @@ static void footer(const Cloud360Menu *menu, const Cloud360UiState *ui)
 
 void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
                      const Cloud360Menu *menu, const Cloud360UiState *ui,
-                     const Cloud360Network *network)
+                     const Cloud360Network *network,
+                     const Cloud360ProbeSnapshot *probe)
 {
     xsdk_gpu_set_target(width, height);
     header(menu, ui);
@@ -395,7 +408,7 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
     else if (menu->selected == CLOUD360_SECTION_SETTINGS)
         settings_page(menu, ui);
     else if (menu->selected == CLOUD360_SECTION_NETWORK)
-        network_page(menu, ui, network);
+        network_page(menu, ui, network, probe);
     else
         about_page(menu, ui);
 

@@ -49,6 +49,9 @@ solicitada.
 Foi integrada uma aba **REDE**, com leitura real do link e do IPv4 local
 pela API XAM via XSDK, indicação de erros e atualização manual pelo botão A.
 Esse diagnóstico **não comprova acesso à internet ou serviço xCloud**.
+O botão **X** inicia, em segundo plano, um teste DNS de `www.xbox.com` e
+de conexão TCP na porta 443 com timeout. A tela mostra sucesso ou falha.
+**Ainda não há HTTPS/TLS nem autenticação.**
 
 Veja o [plano de integração por módulos](docs/DEVELOPMENT.md).
 

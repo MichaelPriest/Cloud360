@@ -17,6 +17,7 @@
 
 #include "menu.h"
 #include "network.h"
+#include "probe.h"
 #include "render.h"
 #include "settings.h"
 #include "ui.h"
@@ -30,6 +31,11 @@ enum {
 };
 
 #define SETTINGS_FILE "game:/cloud360.cfg"
+#define PROBE_HOST "www.xbox.com"
+#define PROBE_PORT 443
+
+/* Detached XAM DNS worker lives for the whole title lifetime. */
+static Cloud360Probe connectivity;
 
 static uint32_t milliseconds(void)
 {
@@ -69,6 +75,8 @@ static uint16_t controller_buttons(void)
         buttons |= CLOUD360_MENU_PREVIOUS_TAB;
     if (raw & INPUT_GAMEPAD_RIGHT_SHOULDER)
         buttons |= CLOUD360_MENU_NEXT_TAB;
+    if (raw & INPUT_GAMEPAD_X)
+        buttons |= CLOUD360_MENU_NETWORK_TEST;
     return buttons;
 }
 
@@ -101,6 +109,14 @@ static void run_title(uint32_t width, uint32_t height)
     const Cloud360NetworkOps net_ops = {
         .link = console_link, .address = console_ipv4, .context = NULL
     };
+    const Cloud360ProbeOps probe_ops = {
+        .resolve_ipv4 = cloud360_probe_resolve_ipv4,
+        .connect_tcp = cloud360_probe_connect_tcp,
+        .context = NULL
+    };
+    const int probe_error = cloud360_probe_init(&connectivity);
+    if (probe_error)
+        xsdk_log_write("Cloud360: DNS/TCP diagnostic unavailable: %d", probe_error);
 
     if (cloud360_settings_load(&menu.settings, SETTINGS_FILE))
         xsdk_log_write("Cloud360: preferences loaded");
@@ -144,6 +160,11 @@ static void run_title(uint32_t width, uint32_t height)
                                network.ipv4[0] ? network.ipv4 : "-",
                                network.error);
             }
+            if (!probe_error && menu.network_probe_requested &&
+                network.status == CLOUD360_NET_LOCAL_IP &&
+                cloud360_probe_start(&connectivity, &probe_ops,
+                                     PROBE_HOST, PROBE_PORT))
+                xsdk_log_write("Cloud360: starting independent DNS/TCP diagnostic");
         }
 
         uint32_t address = 0;
@@ -153,7 +174,11 @@ static void run_title(uint32_t width, uint32_t height)
             return;
         }
 
-        cloud360_render(address, width, height, &menu, &ui, &network);
+        Cloud360ProbeSnapshot probe_result = { 0 };
+        if (!probe_error)
+            cloud360_probe_snapshot(&connectivity, &probe_result);
+        cloud360_render(address, width, height, &menu, &ui,
+                        &network, &probe_result);
         xsdk_present_end();
     }
 }

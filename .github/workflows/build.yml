@@ -48,6 +48,16 @@ jobs:
             src/settings.c tests/test_settings.c -o /tmp/cloud360-settings-tests
           /tmp/cloud360-settings-tests
 
+      - name: Test DNS/TCP diagnostics (host GCC)
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic -pthread \
+            src/probe.c tests/test_probe.c -o /tmp/cloud360-probe
+          /tmp/cloud360-probe
+          gcc -std=gnu17 -Wall -Wextra -Werror -pedantic \
+            src/probe_platform.c tests/test_probe_platform.c \
+            -o /tmp/cloud360-probe-platform
+          /tmp/cloud360-probe-platform
+
       - name: Checkout open XSDK
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
@@ -59,7 +69,7 @@ jobs:
           /tmp/cloud360-icons-tests
 
       - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c
+        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c
 
       - name: Identify XSDK revision
         id: xsdk_revision

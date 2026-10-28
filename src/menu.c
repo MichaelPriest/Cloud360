@@ -31,6 +31,7 @@ void cloud360_menu_init(Cloud360Menu *menu)
     menu->content_focus = false;
     menu->settings_dirty = false;
     menu->network_refresh_requested = false;
+    menu->network_probe_requested = false;
     menu->storage_error = false;
     cloud360_settings_defaults(&menu->settings);
 }
@@ -54,6 +55,7 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
     menu->previous_buttons = buttons;
     menu->settings_dirty = false;
     menu->network_refresh_requested = false;
+    menu->network_probe_requested = false;
 
     if (pressed & CLOUD360_MENU_BACK)
         return true;
@@ -70,6 +72,12 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
     }
     if (pressed & CLOUD360_MENU_NEXT_TAB) {
         change_tab(menu, false);
+        return false;
+    }
+
+    if ((pressed & CLOUD360_MENU_NETWORK_TEST) &&
+        menu->selected == CLOUD360_SECTION_NETWORK) {
+        menu->network_probe_requested = true;
         return false;
     }
 
