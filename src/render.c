@@ -140,7 +140,7 @@ static void header(const Cloud360Menu *menu, const Cloud360UiState *ui)
     }
     underline(ui->tab_x, 108, 98, AZURE);
     if (!menu->content_focus)
-        label(ui->tab_x, 111, 1, SKY, a, "\xE2\x96\B4");
+        label(ui->tab_x, 111, 1, SKY, a, "\xE2\x96\xB4");
 }
 
 static void hero(const Cloud360Menu *menu, const Cloud360UiState *ui)
