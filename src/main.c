@@ -14,6 +14,7 @@
 #include "xsdk/present.h"
 #include "xsdk/splash.h"
 #include "xsdk/text.h"
+#include "menu.h"
 
 enum {
     SPLASH_MS = 1500,
@@ -26,7 +27,7 @@ enum {
     COLOR_MUTED = 0xFF9AA9B8,
     COLOR_SELECTED = 0xFFFFC857,
     COLOR_RULE = 0xFF344452,
-    MENU_COUNT = 5
+    MENU_COUNT = CLOUD360_MENU_COUNT
 };
 
 static const char *const menu_items[MENU_COUNT] = {
@@ -90,16 +91,15 @@ static void draw_menu(uint32_t framebuffer_address, uint32_t width, uint32_t hei
     }
 
     xsdk_text_draw(66, 632, 1, COLOR_MUTED, "BUILD PRELIMINAR - NENHUM STREAMING ATIVO");
-    xsdk_text_draw(66, 668, 1, COLOR_TEXT, "D-PAD: navegar    A: selecionar    BACK: sair");
+    xsdk_text_draw(66, 668, 1, COLOR_TEXT, "D-PAD: navegar   A: selecionar   B: fechar   BACK: sair");
 
     xsdk_gpu_resolve(framebuffer_address, width, height, CLEAR_ARGB);
 }
 
 static void run_title(uint32_t width, uint32_t height)
 {
-    uint32_t selected = 0;
-    uint32_t message_index = MENU_COUNT;
-    uint16_t previous_buttons = 0;
+    Cloud360Menu menu;
+    cloud360_menu_init(&menu);
 
     xsdk_log_write("Cloud360: menu running at %ux%u", (unsigned)width, (unsigned)height);
 
@@ -107,27 +107,24 @@ static void run_title(uint32_t width, uint32_t height)
         INPUT_STATE input = { 0 };
         const uint32_t input_status = XamInputGetState(0, 0, &input);
         const uint16_t buttons = (input_status == ERROR_SUCCESS) ? input.gamepad.buttons : 0;
-        const uint16_t pressed = (uint16_t)(buttons & (uint16_t)~previous_buttons);
-
-        if ((pressed & INPUT_GAMEPAD_BACK) != 0) {
+        uint16_t menu_buttons = 0;
+        if ((buttons & INPUT_GAMEPAD_DPAD_UP) != 0)
+            menu_buttons |= CLOUD360_MENU_UP;
+        if ((buttons & INPUT_GAMEPAD_DPAD_DOWN) != 0)
+            menu_buttons |= CLOUD360_MENU_DOWN;
+        if ((buttons & INPUT_GAMEPAD_A) != 0)
+            menu_buttons |= CLOUD360_MENU_SELECT;
+        if ((buttons & INPUT_GAMEPAD_B) != 0)
+            menu_buttons |= CLOUD360_MENU_CLOSE;
+        if ((buttons & INPUT_GAMEPAD_BACK) != 0)
+            menu_buttons |= CLOUD360_MENU_BACK;
+        const uint32_t previous_message = menu.message_index;
+        if (cloud360_menu_step(&menu, menu_buttons)) {
             xsdk_log_write("Cloud360: Back pressed; exiting");
             return;
         }
-
-        if ((pressed & INPUT_GAMEPAD_DPAD_UP) != 0) {
-            selected = (selected + MENU_COUNT - 1) % MENU_COUNT;
-            message_index = MENU_COUNT;
-        }
-        if ((pressed & INPUT_GAMEPAD_DPAD_DOWN) != 0) {
-            selected = (selected + 1) % MENU_COUNT;
-            message_index = MENU_COUNT;
-        }
-        if ((pressed & INPUT_GAMEPAD_A) != 0) {
-            message_index = selected;
-            xsdk_log_write("Cloud360: menu option %u selected", (unsigned)(selected + 1));
-        }
-
-        previous_buttons = buttons;
+        if (menu.message_index < MENU_COUNT && previous_message != menu.message_index)
+            xsdk_log_write("Cloud360: menu option %u selected", (unsigned)(menu.selected + 1));
 
         uint32_t framebuffer_address = 0;
         const NTSTATUS status = xsdk_present_begin(&framebuffer_address, BEGIN_TIMEOUT_MS);
@@ -136,7 +133,7 @@ static void run_title(uint32_t width, uint32_t height)
             return;
         }
 
-        draw_menu(framebuffer_address, width, height, selected, message_index);
+        draw_menu(framebuffer_address, width, height, menu.selected, menu.message_index);
         xsdk_present_end();
     }
 }

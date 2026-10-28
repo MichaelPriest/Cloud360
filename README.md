@@ -1,6 +1,6 @@
 # Cloud360 — protótipo nativo para Xbox 360
 
-**Estado atual:** protótipo em C com menu navegável pelo direcional e seleção pelo botão A, preparado para compilar como XEX para Xbox 360 RGH/JTAG. **Ainda não é um cliente funcional do Xbox Cloud Gaming (xCloud)** e o XEX ainda precisa ser compilado e validado.
+**Estado atual:** protótipo em C com menu navegável pelo direcional, seleção pelo botão A e retorno pelo botão B, preparado para compilar como XEX para Xbox 360 RGH/JTAG. **Ainda não é um cliente funcional do Xbox Cloud Gaming (xCloud)** e o XEX ainda precisa ser compilado e validado.
 
 ## Objetivo desta etapa
 
@@ -12,6 +12,7 @@ O código foi escrito para mostrar a tela de splash, inicializar GPU e vídeo em
 
 - Código-fonte em C.
 - CMake configurado para produzir um XEX.
+- Testes automatizados da navegação pelo controle no GitHub Actions.
 - Instruções para preparar o ambiente no Windows com WSL/Debian.
 - Referências técnicas para as próximas etapas.
 
@@ -55,11 +56,11 @@ Execute dentro do Debian. É recomendável trabalhar dentro do filesystem Linux 
 ```bash
 git clone https://github.com/xenosworks/xsdk.git ~/xsdk
 cd ~/xsdk
-PREFIX=$HOME/xsdk-gcc WORK=$HOME/xsdk-gcc-work JOBS=$(nproc) tools/toolchain/build.sh
+PREFIX=$HOME/xsdk-gcc WORK=$HOME/xsdk-gcc-work JOBS=$(nproc) bash tools/toolchain/build.sh
 make -j"$(nproc)"
 ```
 
-O primeiro comando de build prepara o compilador cruzado. O comando `make` compila a biblioteca xsdk e as ferramentas usadas pelos títulos. Pode levar alguns minutos e usar vários gigabytes. Se ocorrer uma falha, pare e examine a primeira mensagem de erro e os logs antes de repetir.
+O primeiro comando de build prepara o compilador cruzado. O comando `make` compila a biblioteca xsdk e as ferramentas usadas pelos títulos. Pode levar bastante tempo e usar vários gigabytes. Se ocorrer uma falha, pare e examine a primeira mensagem de erro e os logs antes de repetir.
 
 ## 3. Baixar e compilar o Cloud360
 
