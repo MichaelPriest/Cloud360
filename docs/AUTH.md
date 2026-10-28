@@ -71,8 +71,10 @@ real é enviada pelo GitHub Actions.
 
 ## Limitações e segurança
 
-- **Não há implementação Xbox Live/XSTS, região de jogo, assinatura
-  Game Pass, sessão xCloud ou WebRTC.**
+- **O handshake Xbox Live/XSTS genérico agora está implementado em outro
+  módulo, mas não foi validado no hardware. Não há acesso aos serviços
+  específicos do xCloud, confirmação de assinatura Game Pass, sessões de
+  jogo ou WebRTC.**
 - Este módulo não implementa ainda renovação automática, revogação
   remota de tokens ou persistência criptografada; sair limpa a memória.
 - O cliente não solicita nem armazena senha. Não registre

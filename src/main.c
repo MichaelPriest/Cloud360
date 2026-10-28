@@ -21,6 +21,7 @@
 #include "https.h"
 #include "catalog_runtime.h"
 #include "oauth_runtime.h"
+#include "xbl_runtime.h"
 #include "render.h"
 #include "settings.h"
 #include "ui.h"
@@ -47,6 +48,7 @@ static Cloud360Probe connectivity;
 static Cloud360Https secure_http;
 static Cloud360CatalogRuntime catalog_runtime;
 static Cloud360OAuthRuntime microsoft_login;
+static Cloud360XblRuntime xbox_authorization;
 
 static uint32_t milliseconds(void)
 {
@@ -152,6 +154,10 @@ static void run_title(uint32_t width, uint32_t height)
         &microsoft_login, OAUTH_CLIENT_FILE, HTTPS_CA, login_transport);
     if (login_error)
         xsdk_log_write("Cloud360: OAuth state init failed: %d", login_error);
+    const int xbl_error = cloud360_xbl_runtime_init(
+        &xbox_authorization, HTTPS_CA, cloud360_https_curl_post_json, NULL);
+    if (xbl_error)
+        xsdk_log_write("Cloud360: XSTS state init failed: %d", xbl_error);
 
     const int catalog_error = cloud360_catalog_runtime_init(
         &catalog_runtime, cloud360_https_curl_get, NULL);
@@ -186,6 +192,8 @@ static void run_title(uint32_t width, uint32_t height)
         const uint32_t prev_section = menu.selected;
         if (cloud360_menu_step(&menu, controller_buttons())) {
             xsdk_log_write("Cloud360: Back pressed - exit");
+            if (!xbl_error)
+                cloud360_xbl_runtime_cancel(&xbox_authorization);
             if (!login_error)
                 cloud360_oauth_runtime_logout(&microsoft_login);
             return;
@@ -225,12 +233,27 @@ static void run_title(uint32_t width, uint32_t height)
         if (!login_error) {
             cloud360_oauth_runtime_tick(&microsoft_login, now);
             if (menu.selected == CLOUD360_SECTION_ACCOUNT) {
-                if (menu.account_cancel_requested)
+                if (menu.account_cancel_requested) {
+                    if (!xbl_error)
+                        cloud360_xbl_runtime_cancel(&xbox_authorization);
                     cloud360_oauth_runtime_cancel(&microsoft_login);
-                else if (menu.account_logout_requested)
+                } else if (menu.account_logout_requested) {
+                    if (!xbl_error)
+                        cloud360_xbl_runtime_cancel(&xbox_authorization);
                     cloud360_oauth_runtime_logout(&microsoft_login);
-                else if (menu.account_begin_requested)
-                    (void)cloud360_oauth_runtime_begin(&microsoft_login, now);
+                } else if (menu.account_begin_requested) {
+                    Cloud360OAuthView current = { 0 };
+                    cloud360_oauth_runtime_view(&microsoft_login, now, &current);
+                    if (current.status == CLOUD360_OAUTH_AUTHORIZED) {
+                        if (!xbl_error)
+                            (void)cloud360_xbl_runtime_start(
+                                &xbox_authorization, &microsoft_login);
+                    } else {
+                        if (!xbl_error)
+                            cloud360_xbl_runtime_cancel(&xbox_authorization);
+                        (void)cloud360_oauth_runtime_begin(&microsoft_login, now);
+                    }
+                }
             }
         }
 
@@ -260,6 +283,8 @@ static void run_title(uint32_t width, uint32_t height)
         const NTSTATUS status = xsdk_present_begin(&address, BEGIN_TIMEOUT_MS);
         if (!NT_SUCCESS(status)) {
             xsdk_log_write("Cloud360: present failed 0x%08X", (unsigned)status);
+            if (!xbl_error)
+                cloud360_xbl_runtime_cancel(&xbox_authorization);
             if (!login_error)
                 cloud360_oauth_runtime_logout(&microsoft_login);
             return;
@@ -279,9 +304,14 @@ static void run_title(uint32_t width, uint32_t height)
             cloud360_oauth_runtime_view(&microsoft_login, now, &login_view);
         else
             login_view.status = CLOUD360_OAUTH_UNAVAILABLE;
+        Cloud360XblView xbl_view = { 0 };
+        if (!xbl_error)
+            cloud360_xbl_runtime_snapshot(&xbox_authorization, &xbl_view);
+        else
+            xbl_view.state = CLOUD360_XBL_UNAVAILABLE;
         cloud360_render(address, width, height, &menu, &ui,
                         &network, &probe_result, &https_result,
-                        &catalog_view, &login_view);
+                        &catalog_view, &login_view, &xbl_view);
         xsdk_present_end();
     }
 }

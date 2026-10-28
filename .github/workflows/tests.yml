@@ -133,6 +133,19 @@ jobs:
             -o /tmp/cloud360-https-post-curl
           /tmp/cloud360-https-post-curl
 
+      - name: Test Xbox services U-token and XSTS protocol
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/xbl.c tests/test_xbl.c -o /tmp/cloud360-xbl
+          /tmp/cloud360-xbl
+
+      - name: Test Xbox services two-step async handshake
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic -pthread \
+            src/xbl.c src/xbl_runtime.c tests/test_xbl_runtime.c \
+            -o /tmp/cloud360-xbl-runtime
+          /tmp/cloud360-xbl-runtime
+
       - name: Checkout XSDK headers only
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
@@ -150,7 +163,8 @@ jobs:
             src/main.c src/render.c src/icons.c src/network.c \
             src/probe.c src/probe_platform.c src/https.c src/https_curl.c \
             src/catalog.c src/catalog_runtime.c src/oauth.c \
-            src/oauth_json.c src/oauth_runtime.c
+            src/oauth_json.c src/oauth_runtime.c \
+            src/xbl.c src/xbl_runtime.c
 
       - name: Confirm no .xex is generated
         run: |

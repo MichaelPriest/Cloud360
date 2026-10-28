@@ -88,6 +88,11 @@ typedef struct {
 /* POST application/x-www-form-urlencoded; exposes bounded JSON body even
  * on HTTP 4xx OAuth responses, but NEVER on TLS/certificate failures.
  * TLS settings are identical to the GET backend. No redirects. */
+Cloud360HttpsStatus cloud360_https_curl_post_json(
+    void *context, const Cloud360HttpsRequest *request,
+    const char *json, Cloud360HttpsBody *body,
+    long *http_code, size_t *bytes, int *transport_error);
+
 Cloud360HttpsStatus cloud360_https_curl_post_form(
     void *context, const Cloud360HttpsRequest *request,
     const char *encoded_form, Cloud360HttpsBody *body,

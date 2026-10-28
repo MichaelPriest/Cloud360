@@ -63,7 +63,8 @@ Veja o [plano de integração por módulos](docs/DEVELOPMENT.md), o
 [guia de HTTPS/XSDK](docs/HTTPS.md), o
 [guia de catálogo JSON](docs/CATALOG.md) e a
 [análise do Orbita](docs/ORBITA_REFERENCE.md) e o
-[guia de login Microsoft](docs/AUTH.md).
+[guia de login Microsoft](docs/AUTH.md) e
+[guia da integração Xbox/XSTS](docs/XSTS.md).
 
 ### Catálogo JSON (fonte independente, não é Game Pass)
 
@@ -74,12 +75,20 @@ somente se curl-xenon + mbedtls-xenon estiverem habilitados
 e o arquivo de certificados estiver disponível.
 Os cards exibem títulos importados, identificados como não jogáveis.
 O parser possui busca C interna, ainda sem teclado virtual.
-O novo módulo CONTA implementa fluxo OAuth por código, ainda sem validação
-real no console. Nenhuma sessão Xbox Live/XSTS ou jogo xCloud está disponível.
+O módulo CONTA possui OAuth por código e a implementação em fonte do
+handshake **Xbox U-token → XSTS** com retorno de estados e falhas à interface.
+Após autorizar uma conta Microsoft, **A** tenta validar Xbox Live/XSTS;
+**X** cancela e **Y** encerra a sessão, apagando tokens de memória.
+Sem curl-xenon/mbedtls-xenon o fluxo falha claramente, sem login fictício.
+Nenhum token Xbox Live/XSTS ou sessão xCloud foi validado no console real.
+Ainda não há catálogo Game Pass nem streaming.
 
 ## O que ainda não está implementado
 
-- Xbox Live/XSTS e integração de OAuth autorizado com o serviço xCloud.
+- Validação de Xbox Live/XSTS com servidor real e conta autorizada no
+  Xbox 360; o protocolo foi implementado somente em fonte.
+- Acesso autorizado aos serviços específicos de xCloud e verificação
+  de assinatura e elegibilidade da conta.
 - Validação real de OAuth/TLS no Xbox 360 físico.
 - Integração com o catálogo do Game Pass.
 - Sessão xCloud, WebRTC, decodificação H.264/Opus ou streaming.

@@ -119,6 +119,25 @@ nenhuma persistência segura ou renovação foi implementada.
 O resultado OAuth não comprova acesso ao Xbox Live/XSTS nem xCloud.
 Leia [AUTH.md](AUTH.md).
 
+## Xbox Live e XSTS — handshake implementado em fonte
+
+O Xbox usa um fluxo em duas etapas após OAuth, conforme documentação GDK
+da Microsoft. O módulo `src/xbl.c` constrói solicitações JSON de
+`user.auth.xboxlive.com/user/authenticate` para trocar o access token
+Microsoft por um **U-token**. Depois utiliza
+`xsts.auth.xboxlive.com/xsts/authorize` para obter o X-token/XSTS genérico
+de Xbox services (`RelyingParty=http://xboxlive.com`, sandbox RETAIL).
+
+O módulo `src/xbl_runtime.c` isola a transação em thread, só aceita OAuth
+autorizado, preserva os tokens somente em memória e descarta respostas
+tardias após logout. A tela CONTA mostra o estado Xbox e os códigos de
+erro XSTS relevantes, sem exibir segredos.
+
+**Limites:** TLS XSDK não está habilitado/validado; Xbox XSTS ainda não foi
+testado num Xbox 360; uma autorização XSTS genérica não prova direito de uso
+do Game Pass, nem garante acesso às APIs específicas do xCloud.
+Ver [XSTS.md](XSTS.md).
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |
@@ -126,7 +145,8 @@ Leia [AUTH.md](AUTH.md).
 | 1 | HTTPS/TLS validado no hardware | Cliente HTTPS implementado em fonte; falta build com curl-xenon/mbedtls-xenon e teste real de CA/relógio |
 | 2 | Cliente HTTP/JSON | Parser e catálogo próprios implementados; integração TLS em hardware e fonte oficialmente autorizada continuam pendentes |
 | 3 | Autenticação OAuth Microsoft | Máquina de estados e POST em fonte; falta validar TLS no Xbox, tokens Xbox/XSTS e renovação/revogação |
-| 4 | Catálogo e busca | Dados reais carregados da rede, paginação, filtros, imagens otimizadas |
+| 4 | Xbox Live/XSTS | Handshake e erros implementados em fonte; falta validação em hardware e permissões de serviço |
+| 5 | Catálogo e busca | Dados reais autorizados carregados da rede, paginação, filtros, imagens otimizadas |
 | 5 | Biblioteca e favoritos | Estado da conta sincronizado, cache local com integridade |
 | 6 | Sessões na nuvem | Investigar APIs e protocolos autorizados; não presumir endpoints privados |
 | 7 | WebRTC e transporte | Sinalização, ICE/STUN/TURN, DTLS/SRTP, baixa latência |

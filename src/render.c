@@ -392,7 +392,8 @@ static void network_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
  * Shows only the user_code and verification URI, NEVER device_code,
  * tokens or secrets. Successful OAuth != XSTS / playable xCloud. */
 static void account_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
-                         const Cloud360OAuthView *auth)
+                         const Cloud360OAuthView *auth,
+                         const Cloud360XblView *xbl)
 {
     const uint8_t a = cloud360_ui_page_alpha(ui);
     rect(42, 398, 1192, 221, contrast_panel(menu));
@@ -422,10 +423,17 @@ static void account_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
         label(165, 528, 1, contrast_text(menu), a,
               "TLS exige game:/cacert.pem e curl-xenon + mbedtls-xenon.");
     }
-    label(165, 586, 1, SKY, a,
-          "A INICIAR       X CANCELAR       Y SAIR DA CONTA");
-    label(165, 610, 1, MUTED, a,
-          "Autorizacao OAuth nao habilita automaticamente Xbox Live/xCloud.");
+    label(165, 576, 1,
+          xbl->state == CLOUD360_XBL_AUTHORIZED ? GREEN :
+          xbl->state == CLOUD360_XBL_REJECTED ? GOLD : SKY,
+          a, cloud360_xbl_status_text(xbl->state));
+    if (xbl->state == CLOUD360_XBL_REJECTED && xbl->error_code)
+        label(780, 576, 1, GOLD, a,
+              cloud360_xbl_error_text(xbl->error_code));
+    label(165, 606, 1, SKY, a,
+          auth->status == CLOUD360_OAUTH_AUTHORIZED ?
+          "A VALIDAR XBOX LIVE       X CANCELAR       Y SAIR" :
+          "A LOGIN MICROSOFT       X CANCELAR       Y SAIR");
 }
 
 static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
@@ -494,7 +502,8 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
                      const Cloud360ProbeSnapshot *probe,
                      const Cloud360HttpsSnapshot *https,
                      const Cloud360CatalogView *catalog,
-                     const Cloud360OAuthView *auth)
+                     const Cloud360OAuthView *auth,
+                     const Cloud360XblView *xbl)
 {
     xsdk_gpu_set_target(width, height);
     header(menu, ui);
@@ -512,7 +521,7 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
     else if (menu->selected == CLOUD360_SECTION_NETWORK)
         network_page(menu, ui, network, probe, https);
     else if (menu->selected == CLOUD360_SECTION_ACCOUNT)
-        account_page(menu, ui, auth);
+        account_page(menu, ui, auth, xbl);
     else
         about_page(menu, ui);
 

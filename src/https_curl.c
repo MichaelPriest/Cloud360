@@ -59,7 +59,7 @@ static void init_curl_once(void)
 } while (0)
 
 static Cloud360HttpsStatus curl_execute(
-    void *context, const Cloud360HttpsRequest *request, const char *form,
+    void *context, const Cloud360HttpsRequest *request, const char *payload, bool json_post,
     Cloud360HttpsBody *response, long *http_code,
     size_t *bytes, int *transport_error)
 {
@@ -71,27 +71,33 @@ static Cloud360HttpsStatus curl_execute(
     *http_code = 0;
     *bytes = 0;
     *transport_error = 0;
-    if (form) {
-        const size_t n = strlen(form);
-        if (!n || n > 4096) return CLOUD360_HTTPS_BAD_REQUEST;
-        /* Only application/x-www-form-urlencoded separators and valid
-         * percent-encoding are allowed; no raw URL or header injection. */
-        for (size_t i=0;i<n;++i) {
-            unsigned char ch=(unsigned char)form[i];
-            const bool ordinary=(ch>='A'&&ch<='Z')||
-                (ch>='a'&&ch<='z')||(ch>='0'&&ch<='9')||
-                ch=='-'||ch=='_'||ch=='.'||ch=='~'||
-                ch=='='||ch=='&'||ch=='+';
-            if(ch=='%'){
-                if(i+2>=n) return CLOUD360_HTTPS_BAD_REQUEST;
-                for(size_t k=1;k<=2;++k){
-                    ch=(unsigned char)form[i+k];
-                    if(!((ch>='0'&&ch<='9')||(ch>='A'&&ch<='F')||
-                         (ch>='a'&&ch<='f')))
-                        return CLOUD360_HTTPS_BAD_REQUEST;
-                }
-                i+=2;
-            }else if(!ordinary) return CLOUD360_HTTPS_BAD_REQUEST;
+    if (payload) {
+        const size_t n = strlen(payload);
+        if (!n || n > 10000) return CLOUD360_HTTPS_BAD_REQUEST;
+        if (json_post) {
+            if (payload[0] != '{' || payload[n - 1] != '}')
+                return CLOUD360_HTTPS_BAD_REQUEST;
+            for (size_t i=0; i<n; ++i) {
+                const unsigned char ch=(unsigned char)payload[i];
+                if (ch < 32 || ch > 126) return CLOUD360_HTTPS_BAD_REQUEST;
+            }
+        } else {
+            for (size_t i=0; i<n; ++i) {
+                unsigned char ch=(unsigned char)payload[i];
+                const bool ordinary=(ch>='A'&&ch<='Z')||
+                    (ch>='a'&&ch<='z')||(ch>='0'&&ch<='9')||
+                    ch=='-'||ch=='_'||ch=='.'||ch=='~'||
+                    ch=='='||ch=='&'||ch=='+';
+                if(ch=='%'){
+                    if(i+2>=n) return CLOUD360_HTTPS_BAD_REQUEST;
+                    for(size_t k=1;k<=2;++k){
+                        ch=(unsigned char)payload[i+k];
+                        if(!((ch>='0'&&ch<='9')||(ch>='A'&&ch<='F')||
+                             (ch>='a'&&ch<='f')))return CLOUD360_HTTPS_BAD_REQUEST;
+                    }
+                    i+=2;
+                }else if(!ordinary)return CLOUD360_HTTPS_BAD_REQUEST;
+            }
         }
     }
     if (response) {
@@ -131,17 +137,27 @@ static Cloud360HttpsStatus curl_execute(
     struct curl_slist *headers = NULL;
 
     REQUIRE_OPT(handle, CURLOPT_URL, url);
-    if (form) {
-        headers = curl_slist_append(NULL,
+    if (payload) {
+        headers = curl_slist_append(NULL, json_post ?
+            "Content-Type: application/json" :
             "Content-Type: application/x-www-form-urlencoded");
         if (!headers) {
             result = CLOUD360_HTTPS_UNAVAILABLE;
             goto end;
         }
+        if (json_post) {
+            struct curl_slist *extended = curl_slist_append(
+                headers, "x-xbl-contract-version: 1");
+            if (!extended) {
+                result = CLOUD360_HTTPS_UNAVAILABLE;
+                goto end;
+            }
+            headers = extended;
+        }
         REQUIRE_OPT(handle, CURLOPT_HTTPHEADER, headers);
         REQUIRE_OPT(handle, CURLOPT_POST, 1L);
-        REQUIRE_OPT(handle, CURLOPT_POSTFIELDS, form);
-        REQUIRE_OPT(handle, CURLOPT_POSTFIELDSIZE, (long)strlen(form));
+        REQUIRE_OPT(handle, CURLOPT_POSTFIELDS, payload);
+        REQUIRE_OPT(handle, CURLOPT_POSTFIELDSIZE, (long)strlen(payload));
     } else {
         REQUIRE_OPT(handle, CURLOPT_HTTPGET, 1L);
     }
@@ -195,7 +211,7 @@ end:
     /* OAuth errors are valid HTTPS responses and must be parsed on 4xx.
      * Never expose data if TLS verification, transport or limits fail. */
     if (response && result != CLOUD360_HTTPS_OK &&
-        !(form && result == CLOUD360_HTTPS_HTTP_ERROR)) {
+        !(payload && result == CLOUD360_HTTPS_HTTP_ERROR)) {
         response->used = 0;
         response->data[0] = '\0';
     }
@@ -207,7 +223,7 @@ Cloud360HttpsStatus cloud360_https_curl_get(
     Cloud360HttpsBody *body, long *http_code, size_t *bytes,
     int *transport_error)
 {
-    return curl_execute(context, request, NULL, body, http_code, bytes,
+    return curl_execute(context, request, NULL, false, body, http_code, bytes,
                         transport_error);
 }
 
@@ -217,8 +233,18 @@ Cloud360HttpsStatus cloud360_https_curl_post_form(
     size_t *bytes, int *transport_error)
 {
     if (!form) return CLOUD360_HTTPS_BAD_REQUEST;
-    return curl_execute(context, request, form, body, http_code, bytes,
+    return curl_execute(context, request, form, false, body, http_code, bytes,
                         transport_error);
+}
+
+Cloud360HttpsStatus cloud360_https_curl_post_json(
+    void *context, const Cloud360HttpsRequest *request,
+    const char *json, Cloud360HttpsBody *body, long *http_code,
+    size_t *bytes, int *transport_error)
+{
+    if (!json) return CLOUD360_HTTPS_BAD_REQUEST;
+    return curl_execute(context, request, json, true, body, http_code,
+                        bytes, transport_error);
 }
 
 Cloud360HttpsStatus cloud360_https_curl_fetch(
@@ -231,6 +257,16 @@ Cloud360HttpsStatus cloud360_https_curl_fetch(
 #undef REQUIRE_OPT
 
 #else
+
+Cloud360HttpsStatus cloud360_https_curl_post_json(
+    void *context, const Cloud360HttpsRequest *request,
+    const char *json, Cloud360HttpsBody *body, long *http_code,
+    size_t *bytes, int *transport_error)
+{
+    if (!json) return CLOUD360_HTTPS_BAD_REQUEST;
+    return cloud360_https_curl_get(context, request, body, http_code,
+                                   bytes, transport_error);
+}
 
 Cloud360HttpsStatus cloud360_https_curl_post_form(
     void *context, const Cloud360HttpsRequest *request,
