@@ -37,13 +37,13 @@ jobs:
       - name: Build XSDK cross-compiler
         run: |
           cd "$HOME/xsdk"
-          PREFIX="$HOME/xsdk-gcc" WORK="$HOME/xsdk-gcc-work" JOBS=2 bash tools/toolchain/build.sh
+          PREFIX="$HOME/xsdk-gcc" WORK="$HOME/xsdk-gcc-work" JOBS="$(nproc)" bash tools/toolchain/build.sh
 
       - name: Build XSDK libraries
         run: |
           echo "$HOME/xsdk-gcc/bin" >> "$GITHUB_PATH"
           cd "$HOME/xsdk"
-          make -j2
+          make -j"$(nproc)"
 
       - name: Configure Cloud360
         run: |

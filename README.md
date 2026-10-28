@@ -1,12 +1,12 @@
 # Cloud360 — protótipo nativo para Xbox 360
 
-**Estado atual:** scaffold inicial em C para explorar um aplicativo XEX no Xbox 360 RGH/JTAG. **Ainda não é um cliente funcional do Xbox Cloud Gaming (xCloud)** e este repositório não contém um XEX compilado.
+**Estado atual:** protótipo em C com menu navegável pelo direcional e seleção pelo botão A, preparado para compilar como XEX para Xbox 360 RGH/JTAG. **Ainda não é um cliente funcional do Xbox Cloud Gaming (xCloud)** e o XEX ainda precisa ser compilado e validado.
 
 ## Objetivo desta etapa
 
 Criar uma primeira aplicação nativa que possa ser iniciada pela Aurora sem iniciar o XeLL manualmente. O projeto usa a toolchain comunitária [xsdk](https://github.com/xenosworks/xsdk).
 
-O código tenta mostrar a tela de splash, inicializar a GPU e o vídeo em 720p, limpar a tela em cada frame e encerrar com o botão **Back**. As chamadas usadas foram comparadas com os cabeçalhos e o exemplo oficial atual do xsdk, mas **ainda não compilamos nem testamos este projeto**.
+O código foi escrito para mostrar a tela de splash, inicializar GPU e vídeo em 720p, desenhar um menu com a API de texto do XSDK e permitir navegação pelo controle. As opções de streaming exibem avisos de que ainda não estão implementadas. **A compilação e o teste em hardware ainda estão pendentes.**
 
 ## O que está incluído
 
@@ -17,7 +17,6 @@ O código tenta mostrar a tela de splash, inicializar a GPU e o vídeo em 720p, 
 
 ## O que ainda não está implementado
 
-- Menu, catálogo ou interface completa.
 - Login Microsoft/Xbox, OAuth ou XSTS.
 - Integração com o catálogo do Game Pass.
 - Sessão xCloud, WebRTC, decodificação H.264/Opus ou streaming.
@@ -105,9 +104,9 @@ Um build bem-sucedido não garante que o programa funcione em todas as configura
 
 ## Próximas etapas
 
-1. Compilar o scaffold e corrigir qualquer erro real.
-2. Testar a inicialização na Aurora.
-3. Criar a interface de navegação.
+1. Compilar o protótipo e corrigir qualquer erro real.
+2. Testar a inicialização e o menu na Aurora.
+3. Implementar e testar navegação adicional, estados e configurações.
 4. Pesquisar separadamente a viabilidade de autenticação, rede e streaming do xCloud.
 
 Cloud360 é um projeto independente, não afiliado nem endossado pela Microsoft, Xbox ou pelos projetos de referência.
