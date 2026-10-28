@@ -9,6 +9,9 @@ on:
       - "CMakeLists.txt"
       - "src/**"
       - ".github/workflows/build.yml"
+      - "tests/**"
+      - "scripts/**"
+      - "docs/XENIA.md"
 
 permissions:
   contents: read
@@ -48,9 +51,12 @@ jobs:
             src/settings.c tests/test_settings.c -o /tmp/cloud360-settings-tests
           /tmp/cloud360-settings-tests
 
-      - name: Checkout open XSDK
+      - name: Checkout pinned XSDK
         run: |
+          # xsdk_gpu_swap is an internal ABI: fix the SDK revision.
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
+          git -C "$HOME/xsdk" fetch --depth 1 origin 8c58c7a3fb37bb261c5a11a8a1f4fa8a8bfd0d28
+          git -C "$HOME/xsdk" checkout --detach 8c58c7a3fb37bb261c5a11a8a1f4fa8a8bfd0d28
 
       - name: Test original pixel icons (host GCC)
         run: |
@@ -58,8 +64,20 @@ jobs:
             -I "$HOME/xsdk/include" src/icons.c tests/test_icons.c -o /tmp/cloud360-icons-tests
           /tmp/cloud360-icons-tests
 
-      - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c
+      - name: Test Xenia frontbuffer ownership (host mocks)
+        run: |
+          gcc -std=gnu17 -Wall -Wextra -Werror -pedantic \
+            -I "$HOME/xsdk/include" src/xenia_present.c tests/test_xenia_present.c \
+            -o /tmp/cloud360-xenia-tests
+          /tmp/cloud360-xenia-tests
+
+      - name: Validate Xbox and Xenia source syntax
+        run: |
+          gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only \
+            -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c
+          gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only \
+            -DCLOUD360_XENIA=1 -I "$HOME/xsdk/include" \
+            src/main.c src/xenia_present.c src/render.c src/icons.c
 
       - name: Identify XSDK revision
         id: xsdk_revision
@@ -104,10 +122,32 @@ jobs:
       - name: Compile Cloud360
         run: cmake --build build --verbose
 
-      - name: Upload XEX artifact
+      - name: Validate both XEX2 files
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ("cloud360.xex", "cloud360_xenia.xex"):
+              file = Path("build") / name
+              data = file.read_bytes()
+              assert data.startswith(b"XEX2") and len(data) > 128, f"Invalid XEX2: {file}"
+              print(f"VALID XEX2 {file} ({len(data)} bytes)")
+          PY
+
+      - name: Upload Xbox 360 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Cloud360-XEX
-          path: build/**/*.xex
+          name: Cloud360-Xbox360-XEX
+          path: build/cloud360.xex
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload experimental Xenia artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cloud360-Xenia-XEX
+          path: |
+            build/cloud360_xenia.xex
+            scripts/Iniciar-Cloud360-Xenia.bat
+            docs/XENIA.md
           if-no-files-found: error
           retention-days: 14

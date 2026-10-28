@@ -39,6 +39,20 @@ gcc -std=c17 -Wall -Wextra -Werror -pedantic src/settings.c tests/test_settings.
 
 O GitHub Actions também valida a renderização de ícones via código e a sintaxe das APIs do XSDK antes de compilar o .xex.
 
+## Xenia Canary — build experimental
+
+O XSDK precisa de um controlador de vídeo que o Xenia não emula. O Cloud360
+agora gera **dois XEX independentes**: `cloud360.xex` para o Xbox 360 real
+e `cloud360_xenia.xex` para tentar apresentar quadros no Xenia Canary
+através do mecanismo `VdSwap`.
+
+O fallback usa uma função interna do XSDK (`xsdk_gpu_swap`), de modo que
+o GitHub Actions fixa a versão do SDK utilizada. A compilação e os testes
+automatizados não garantem que a imagem aparecerá no emulador: **a execução
+real em Xenia precisa ser comprovada**.
+
+Consulte [o guia para o Xenia](docs/XENIA.md) antes de executar.
+
 ## O que ainda não está implementado
 
 - Login Microsoft/Xbox, OAuth ou XSTS.

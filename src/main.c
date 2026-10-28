@@ -13,6 +13,10 @@
 #include "xsdk/splash.h"
 #include "xsdk/text.h"
 
+#ifdef CLOUD360_XENIA
+#include "xenia_present.h"
+#endif
+
 #include "menu.h"
 #include "render.h"
 #include "settings.h"
@@ -69,7 +73,11 @@ static uint16_t controller_buttons(void)
     return buttons;
 }
 
-static void run_title(uint32_t width, uint32_t height)
+static void run_title(uint32_t width, uint32_t height
+#ifdef CLOUD360_XENIA
+                      , Cloud360XeniaPresent *xenia
+#endif
+)
 {
     Cloud360Menu menu;
     Cloud360UiState ui;
@@ -109,23 +117,41 @@ static void run_title(uint32_t width, uint32_t height)
         cloud360_ui_step(&ui, &menu, delta);
 
         uint32_t address = 0;
+#ifdef CLOUD360_XENIA
+        const NTSTATUS status = cloud360_xenia_present_begin(xenia, &address);
+#else
         const NTSTATUS status = xsdk_present_begin(&address, BEGIN_TIMEOUT_MS);
+#endif
         if (!NT_SUCCESS(status)) {
-            xsdk_log_write("Cloud360: present failed 0x%08X", (unsigned)status);
+            xsdk_log_write("Cloud360: present begin failed 0x%08X", (unsigned)status);
             return;
         }
 
         cloud360_render(address, width, height, &menu, &ui);
+#ifdef CLOUD360_XENIA
+        const NTSTATUS swapped = cloud360_xenia_present_end(xenia);
+        if (!NT_SUCCESS(swapped)) {
+            xsdk_log_write("Cloud360: VdSwap failed 0x%08X", (unsigned)swapped);
+            return;
+        }
+#else
         xsdk_present_end();
+#endif
     }
 }
 
 int main(void)
 {
     xsdk_log_write("Cloud360: boot");
+#ifndef CLOUD360_XENIA
     const NTSTATUS splash = xsdk_splash_show(SPLASH_MS);
     if (!NT_SUCCESS(splash))
         xsdk_log_write("Cloud360: splash failed 0x%08X", (unsigned)splash);
+#else
+    /* Xenia has no display controller: even xsdk_splash_show fails there.
+       Skip it entirely and use the VdSwap GPU path below. */
+    xsdk_log_write("XENIA: display controller bypass enabled");
+#endif
 
     NTSTATUS status = xsdk_gpu_open();
     if (!NT_SUCCESS(status)) {
@@ -140,6 +166,18 @@ int main(void)
         return 1;
     }
 
+#ifdef CLOUD360_XENIA
+    Cloud360XeniaPresent xenia = { 0 };
+    status = cloud360_xenia_present_open(&xenia);
+    if (!NT_SUCCESS(status)) {
+        xsdk_log_write("XENIA: framebuffer unavailable 0x%08X", (unsigned)status);
+        xsdk_text_close();
+        (void)xsdk_gpu_close();
+        return 1;
+    }
+    run_title(xenia.width, xenia.height, &xenia);
+    cloud360_xenia_present_close(&xenia);
+#else
     uint32_t width = 0;
     uint32_t height = 0;
     status = xsdk_present_open(XSDK_DISPLAY_720P, BUFFER_COUNT,
@@ -150,10 +188,9 @@ int main(void)
         (void)xsdk_gpu_close();
         return 1;
     }
-
     run_title(width, height);
-
     xsdk_present_close();
+#endif
     xsdk_text_close();
     status = xsdk_gpu_close();
     if (!NT_SUCCESS(status))
