@@ -13,12 +13,12 @@
 typedef struct {
     size_t received;
     bool too_large;
+    Cloud360HttpsBody *body;
 } Cloud360WriteState;
 
 static size_t receive_body(char *data, size_t size, size_t nmemb, void *opaque)
 {
     Cloud360WriteState *state = opaque;
-    (void)data;
     if (size != 0 && nmemb > SIZE_MAX / size) {
         state->too_large = true;
         return 0;
@@ -27,6 +27,17 @@ static size_t receive_body(char *data, size_t size, size_t nmemb, void *opaque)
     if (amount > CLOUD360_HTTPS_BODY_LIMIT - state->received) {
         state->too_large = true;
         return 0;
+    }
+    if (state->body) {
+        Cloud360HttpsBody *body = state->body;
+        if (!body->data || !body->capacity ||
+            amount > body->capacity - 1 - body->used) {
+            state->too_large = true;
+            return 0;
+        }
+        memcpy(body->data + body->used, data, amount);
+        body->used += amount;
+        body->data[body->used] = '\0';
     }
     state->received += amount;
     return amount;
@@ -47,9 +58,10 @@ static void init_curl_once(void)
     } \
 } while (0)
 
-Cloud360HttpsStatus cloud360_https_curl_fetch(
+Cloud360HttpsStatus cloud360_https_curl_get(
     void *context, const Cloud360HttpsRequest *request,
-    long *http_code, size_t *bytes, int *transport_error)
+    Cloud360HttpsBody *response, long *http_code,
+    size_t *bytes, int *transport_error)
 {
     (void)context;
     if (!http_code || !bytes || !transport_error ||
@@ -59,6 +71,13 @@ Cloud360HttpsStatus cloud360_https_curl_fetch(
     *http_code = 0;
     *bytes = 0;
     *transport_error = 0;
+    if (response) {
+        if (!response->data || response->capacity < 2 ||
+            response->capacity > CLOUD360_HTTPS_BODY_LIMIT + 1)
+            return CLOUD360_HTTPS_BAD_REQUEST;
+        response->used = 0;
+        response->data[0] = '\0';
+    }
 
     /* The title provides its own Mozilla root bundle beside the XEX.
      * Never disable certificate checks when missing or invalid. */
@@ -84,7 +103,7 @@ Cloud360HttpsStatus cloud360_https_curl_fetch(
     if (!handle)
         return CLOUD360_HTTPS_UNAVAILABLE;
     Cloud360HttpsStatus result = CLOUD360_HTTPS_TRANSPORT_ERROR;
-    Cloud360WriteState body = { 0 };
+    Cloud360WriteState body = { .body = response };
     CURLcode code = CURLE_FAILED_INIT;
 
     REQUIRE_OPT(handle, CURLOPT_URL, url);
@@ -135,22 +154,49 @@ Cloud360HttpsStatus cloud360_https_curl_fetch(
 
 end:
     curl_easy_cleanup(handle);
+    if (response && result != CLOUD360_HTTPS_OK) {
+        response->used = 0;
+        response->data[0] = '\0';
+    }
     return result;
 }
-#undef REQUIRE_OPT
-
-#else
 
 Cloud360HttpsStatus cloud360_https_curl_fetch(
     void *context, const Cloud360HttpsRequest *request,
     long *http_code, size_t *bytes, int *transport_error)
 {
+    return cloud360_https_curl_get(
+        context, request, NULL, http_code, bytes, transport_error);
+}
+#undef REQUIRE_OPT
+
+#else
+
+Cloud360HttpsStatus cloud360_https_curl_get(
+    void *context, const Cloud360HttpsRequest *request,
+    Cloud360HttpsBody *body, long *http_code, size_t *bytes,
+    int *transport_error)
+{
     (void)context;
+    if (body) {
+        if (!body->data || body->capacity == 0)
+            return CLOUD360_HTTPS_BAD_REQUEST;
+        body->data[0] = '\0';
+        body->used = 0;
+    }
     if (http_code) *http_code = 0;
     if (bytes) *bytes = 0;
     if (transport_error) *transport_error = ENOSYS;
     return cloud360_https_request_valid(request) ?
            CLOUD360_HTTPS_UNAVAILABLE : CLOUD360_HTTPS_BAD_REQUEST;
+}
+
+Cloud360HttpsStatus cloud360_https_curl_fetch(
+    void *context, const Cloud360HttpsRequest *request,
+    long *http_code, size_t *bytes, int *transport_error)
+{
+    return cloud360_https_curl_get(
+        context, request, NULL, http_code, bytes, transport_error);
 }
 
 #endif

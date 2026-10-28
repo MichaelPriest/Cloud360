@@ -90,12 +90,27 @@ do PC. **Isso não demonstra que o TLS funciona no Xbox 360.**
 Navegação com controle, abas, cards, animações suaves e opções persistidas em
 `game:/cloud360.cfg` já estão conectadas. Ainda precisam de testes em hardware.
 
+## Catálogo JSON e estudo do Orbita
+
+Foram implementados parsing de JSON próprio do Cloud360, armazenamento
+local e download HTTPS opcional (src/catalog.c e src/catalog_runtime.c).
+O app exibe até três cards por página na aba EXPLORAR. O catálogo
+não está ligado às APIs Microsoft ou Xbox Live; somente dados
+explicitamente fornecidos são mostrados. Ver CATALOG.md.
+
+Orbita (github.com/sergiolimasks/orbita) é uma referência técnica
+para a arquitetura completa, mas usa libxenon e ELF via XeLL,
+enquanto Cloud360 usa XSDK e XEX via Aurora. Não é uma
+implementação diretamente transplantável. Orbita é GPL-3.0 e
+Cloud360 é MIT; não copiar código sem resolver licenciamento.
+Ver ORBITA_REFERENCE.md.
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |
 |---|---|---|
 | 1 | HTTPS/TLS validado no hardware | Cliente HTTPS implementado em fonte; falta build com curl-xenon/mbedtls-xenon e teste real de CA/relógio |
-| 2 | Cliente HTTP/JSON | Requisições seguras autenticadas, limites de memória e erros tratados |
+| 2 | Cliente HTTP/JSON | Parser e catálogo próprios implementados; integração TLS em hardware e fonte oficialmente autorizada continuam pendentes |
 | 3 | Autenticação OAuth Microsoft | Fluxos públicos/autorizados, consentimento do usuário, armazenamento seguro de tokens |
 | 4 | Catálogo e busca | Dados reais carregados da rede, paginação, filtros, imagens otimizadas |
 | 5 | Biblioteca e favoritos | Estado da conta sincronizado, cache local com integridade |

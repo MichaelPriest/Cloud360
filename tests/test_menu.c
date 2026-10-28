@@ -150,6 +150,40 @@ static void test_network_refresh(void)
     assert(!menu.network_https_requested);
 }
 
+static void test_catalog_navigation(void)
+{
+    Cloud360Menu menu;
+    cloud360_menu_init(&menu);
+    press(&menu, CLOUD360_MENU_NEXT_TAB);
+    assert(menu.selected == CLOUD360_SECTION_EXPLORE);
+
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_CATALOG_LOCAL));
+    assert(menu.catalog_local_requested);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_CATALOG_LOCAL));
+    assert(!menu.catalog_local_requested);
+    release(&menu);
+
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_CATALOG_ONLINE));
+    assert(menu.catalog_online_requested);
+    assert(!cloud360_menu_step(&menu, CLOUD360_MENU_CATALOG_ONLINE));
+    assert(!menu.catalog_online_requested);
+    release(&menu);
+
+    menu.catalog_count = 7;
+    press(&menu, CLOUD360_MENU_DOWN);
+    assert(menu.content_focus);
+    for (uint32_t i = 0; i < 7; ++i)
+        press(&menu, CLOUD360_MENU_RIGHT);
+    assert(menu.card_index == 0);
+    press(&menu, CLOUD360_MENU_LEFT);
+    assert(menu.card_index == 6);
+
+    press(&menu, CLOUD360_MENU_NEXT_TAB);
+    assert(!menu.content_focus);
+    assert(menu.card_index == 0);
+    assert(!menu.catalog_online_requested && !menu.catalog_local_requested);
+}
+
 static void test_priority_and_focus(void)
 {
     Cloud360Menu menu;
@@ -170,6 +204,7 @@ int main(void)
     test_search_and_about();
     test_settings();
     test_network_refresh();
+    test_catalog_navigation();
     test_priority_and_focus();
     puts("Cloud360 controller navigation: PASS");
     return 0;

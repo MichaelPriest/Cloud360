@@ -27,12 +27,15 @@ void cloud360_menu_init(Cloud360Menu *menu)
     menu->message_index = CLOUD360_NO_MESSAGE;
     menu->card_index = 0;
     menu->setting_index = 0;
+    menu->catalog_count = 0;
     menu->previous_buttons = 0;
     menu->content_focus = false;
     menu->settings_dirty = false;
     menu->network_refresh_requested = false;
     menu->network_probe_requested = false;
     menu->network_https_requested = false;
+    menu->catalog_local_requested = false;
+    menu->catalog_online_requested = false;
     menu->storage_error = false;
     cloud360_settings_defaults(&menu->settings);
 }
@@ -58,6 +61,8 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
     menu->network_refresh_requested = false;
     menu->network_probe_requested = false;
     menu->network_https_requested = false;
+    menu->catalog_local_requested = false;
+    menu->catalog_online_requested = false;
 
     if (pressed & CLOUD360_MENU_BACK)
         return true;
@@ -86,6 +91,17 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
         menu->selected == CLOUD360_SECTION_NETWORK) {
         menu->network_https_requested = true;
         return false;
+    }
+
+    if (menu->selected == CLOUD360_SECTION_EXPLORE) {
+        if (pressed & CLOUD360_MENU_CATALOG_LOCAL) {
+            menu->catalog_local_requested = true;
+            return false;
+        }
+        if (pressed & CLOUD360_MENU_CATALOG_ONLINE) {
+            menu->catalog_online_requested = true;
+            return false;
+        }
     }
 
     if (pressed & CLOUD360_MENU_CLOSE) {
@@ -131,12 +147,15 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
         return false;
     }
 
+    const uint32_t cards = menu->selected == CLOUD360_SECTION_EXPLORE &&
+                           menu->catalog_count ? menu->catalog_count :
+                           CLOUD360_CARD_COUNT;
     if (pressed & CLOUD360_MENU_UP) {
         menu->content_focus = false;
     } else if (pressed & CLOUD360_MENU_LEFT) {
-        menu->card_index = wrap(menu->card_index, CLOUD360_CARD_COUNT, true);
+        menu->card_index = wrap(menu->card_index, cards, true);
     } else if (pressed & CLOUD360_MENU_RIGHT) {
-        menu->card_index = wrap(menu->card_index, CLOUD360_CARD_COUNT, false);
+        menu->card_index = wrap(menu->card_index, cards, false);
     }
 
     if (menu->content_focus && (pressed & CLOUD360_MENU_SELECT))

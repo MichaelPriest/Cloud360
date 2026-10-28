@@ -19,6 +19,7 @@
 #include "network.h"
 #include "probe.h"
 #include "https.h"
+#include "catalog_runtime.h"
 #include "render.h"
 #include "settings.h"
 #include "ui.h"
@@ -36,10 +37,13 @@ enum {
 #define PROBE_PORT 443
 #define HTTPS_HOST "example.com"
 #define HTTPS_CA "game:/cacert.pem"
+#define CATALOG_LOCAL_FILE "game:/catalog.json"
+#define CATALOG_SOURCE_FILE "game:/catalog-source.txt"
 
 /* Detached XAM workers live for the whole title lifetime. */
 static Cloud360Probe connectivity;
 static Cloud360Https secure_http;
+static Cloud360CatalogRuntime catalog_runtime;
 
 static uint32_t milliseconds(void)
 {
@@ -80,9 +84,9 @@ static uint16_t controller_buttons(void)
     if (raw & INPUT_GAMEPAD_RIGHT_SHOULDER)
         buttons |= CLOUD360_MENU_NEXT_TAB;
     if (raw & INPUT_GAMEPAD_X)
-        buttons |= CLOUD360_MENU_NETWORK_TEST;
+        buttons |= CLOUD360_MENU_NETWORK_TEST | CLOUD360_MENU_CATALOG_LOCAL;
     if (raw & INPUT_GAMEPAD_Y)
-        buttons |= CLOUD360_MENU_NETWORK_HTTPS;
+        buttons |= CLOUD360_MENU_NETWORK_HTTPS | CLOUD360_MENU_CATALOG_ONLINE;
     return buttons;
 }
 
@@ -134,6 +138,17 @@ static void run_title(uint32_t width, uint32_t height)
     if (https_error)
         xsdk_log_write("Cloud360: HTTPS diagnostic unavailable: %d", https_error);
 
+    const int catalog_error = cloud360_catalog_runtime_init(
+        &catalog_runtime, cloud360_https_curl_get, NULL);
+    if (catalog_error) {
+        xsdk_log_write("Cloud360: catalog unavailable: %d", catalog_error);
+    } else if (cloud360_catalog_runtime_local(
+                   &catalog_runtime, CATALOG_LOCAL_FILE)) {
+        xsdk_log_write("Cloud360: local catalog loaded");
+    } else {
+        xsdk_log_write("Cloud360: no valid local catalog; no games invented");
+    }
+
     if (cloud360_settings_load(&menu.settings, SETTINGS_FILE))
         xsdk_log_write("Cloud360: preferences loaded");
     else
@@ -144,6 +159,15 @@ static void run_title(uint32_t width, uint32_t height)
 
     uint32_t last_ms = milliseconds();
     for (;;) {
+        Cloud360CatalogView catalog_view = { 0 };
+        if (!catalog_error) {
+            cloud360_catalog_runtime_snapshot(&catalog_runtime,
+                                              menu.card_index, &catalog_view);
+            menu.catalog_count = catalog_view.count;
+            if (menu.selected == CLOUD360_SECTION_EXPLORE &&
+                menu.catalog_count && menu.card_index >= menu.catalog_count)
+                menu.card_index = 0;
+        }
         const uint32_t prev_section = menu.selected;
         if (cloud360_menu_step(&menu, controller_buttons())) {
             xsdk_log_write("Cloud360: Back pressed - exit");
@@ -158,6 +182,18 @@ static void run_title(uint32_t width, uint32_t height)
         }
         if (menu.selected != prev_section)
             xsdk_log_write("Cloud360: section %u", (unsigned)menu.selected);
+
+        if (!catalog_error && menu.selected == CLOUD360_SECTION_EXPLORE) {
+            if (menu.catalog_local_requested)
+                (void)cloud360_catalog_runtime_local(
+                    &catalog_runtime, CATALOG_LOCAL_FILE);
+            if (menu.catalog_online_requested)
+                (void)cloud360_catalog_runtime_source(
+                    &catalog_runtime, CATALOG_SOURCE_FILE, HTTPS_CA);
+            cloud360_catalog_runtime_snapshot(&catalog_runtime,
+                                              menu.card_index, &catalog_view);
+            menu.catalog_count = catalog_view.count;
+        }
 
         const uint32_t now = milliseconds();
         uint32_t delta = now - last_ms;
@@ -201,8 +237,11 @@ static void run_title(uint32_t width, uint32_t height)
             cloud360_probe_snapshot(&connectivity, &probe_result);
         if (!https_error)
             cloud360_https_snapshot(&secure_http, &https_result);
+        if (!catalog_error)
+            cloud360_catalog_runtime_snapshot(&catalog_runtime,
+                                              menu.card_index, &catalog_view);
         cloud360_render(address, width, height, &menu, &ui,
-                        &network, &probe_result, &https_result);
+                        &network, &probe_result, &https_result, &catalog_view);
         xsdk_present_end();
     }
 }

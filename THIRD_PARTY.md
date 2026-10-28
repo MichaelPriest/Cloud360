@@ -10,6 +10,6 @@ Review the current license and notices of each upstream project before redistrib
 Other independent technical references:
 
 - Xenonlight: https://github.com/roderick-neuhoff/Xenonlight
-- Orbita: https://github.com/sergiolimasks/orbita
+- Orbita: https://github.com/sergiolimasks/orbita — GPL-3.0; referência arquitetural, nenhum código copiado. Ver docs/ORBITA_REFERENCE.md.
 
 Cloud360 does not claim affiliation with these projects or with Microsoft/Xbox.

@@ -31,7 +31,9 @@ enum {
     CLOUD360_MENU_PREVIOUS_TAB = 1u << 7,
     CLOUD360_MENU_NEXT_TAB = 1u << 8,
     CLOUD360_MENU_NETWORK_TEST = 1u << 9,
-    CLOUD360_MENU_NETWORK_HTTPS = 1u << 10
+    CLOUD360_MENU_NETWORK_HTTPS = 1u << 10,
+    CLOUD360_MENU_CATALOG_LOCAL = 1u << 11,
+    CLOUD360_MENU_CATALOG_ONLINE = 1u << 12
 };
 
 typedef struct {
@@ -39,12 +41,15 @@ typedef struct {
     uint32_t message_index;
     uint32_t card_index;
     uint32_t setting_index;
+    uint32_t catalog_count;
     uint16_t previous_buttons;
     bool content_focus;
     bool settings_dirty;
     bool network_refresh_requested;
     bool network_probe_requested;
     bool network_https_requested;
+    bool catalog_local_requested;
+    bool catalog_online_requested;
     bool storage_error;
     Cloud360Settings settings;
 } Cloud360Menu;

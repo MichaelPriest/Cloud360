@@ -76,6 +76,19 @@ const char *cloud360_https_status_text(Cloud360HttpsStatus status);
 
 /* XSDK curl-xenon transport; returns UNAVAILABLE unless built with
  * CLOUD360_WITH_CURL and linked against curl-xenon + mbedtls-xenon. */
+/* Optional bounded response body. NULL discards bytes; non-NULL stores at
+ * most capacity-1 bytes and terminates with NUL on success.
+ * The whole call fails on overflow; no truncated JSON is accepted. */
+typedef struct {
+    char *data;
+    size_t capacity;
+    size_t used;
+} Cloud360HttpsBody;
+
+Cloud360HttpsStatus cloud360_https_curl_get(
+    void *context, const Cloud360HttpsRequest *request,
+    Cloud360HttpsBody *body, long *http_code, size_t *bytes, int *transport_error);
+
 Cloud360HttpsStatus cloud360_https_curl_fetch(
     void *context, const Cloud360HttpsRequest *request,
     long *http_code, size_t *bytes, int *transport_error);

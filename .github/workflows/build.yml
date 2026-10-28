@@ -68,6 +68,16 @@ jobs:
             -o /tmp/cloud360-https-stub
           /tmp/cloud360-https-stub
 
+      - name: Test catalog parsing and asynchronous refresh (host GCC)
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/catalog.c tests/test_catalog.c -o /tmp/cloud360-catalog
+          /tmp/cloud360-catalog
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic -pthread \
+            src/https.c src/catalog.c src/catalog_runtime.c \
+            tests/test_catalog_runtime.c -o /tmp/cloud360-catalog-runtime
+          /tmp/cloud360-catalog-runtime
+
       - name: Checkout open XSDK
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
@@ -79,7 +89,7 @@ jobs:
           /tmp/cloud360-icons-tests
 
       - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c
+        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c src/catalog.c src/catalog_runtime.c
 
       - name: Identify XSDK revision
         id: xsdk_revision

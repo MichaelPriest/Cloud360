@@ -13,6 +13,8 @@ add_executable(cloud360
     src/probe_platform.c
     src/https.c
     src/https_curl.c
+    src/catalog.c
+    src/catalog_runtime.c
 )
 set_target_properties(cloud360 PROPERTIES C_STANDARD 17 C_EXTENSIONS ON)
 target_compile_options(cloud360 PRIVATE -Wall -Wextra -Werror)

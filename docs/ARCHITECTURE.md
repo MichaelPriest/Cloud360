@@ -6,6 +6,16 @@ Cloud360 0.2 é apenas uma **interface nativa XEX**, inspirada na experiência d
 do Xbox Cloud Gaming. A Microsoft não oferece oficialmente um cliente xCloud para
 Xbox 360. O projeto não promete compatibilidade antes de testes de engenharia.
 
+## Referência nativa no Xbox 360
+
+Orbita: https://github.com/sergiolimasks/orbita — documentação e fontes
+demonstram uma arquitetura com OAuth Microsoft, catálogo,
+negociação de sessão xCloud, WebRTC, H.264, Opus e controles.
+Utiliza libxenon/ELF iniciado pelo XeLL, não XSDK/XEX.
+Há diferenças de GPU, I/O e threading; não copiar o código GPL-3.0
+para o projeto MIT sem avaliar consequências de licenciamento.
+Detalhes em ORBITA_REFERENCE.md.
+
 ## Etapas técnicas (não implementadas)
 
 1. Autenticação: explorar um fluxo autorizado Microsoft OAuth (por exemplo, device

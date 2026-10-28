@@ -7,6 +7,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include "icons.h"
 #include "xsdk/gpu.h"
 #include "xsdk/text.h"
@@ -111,7 +112,7 @@ static const char *const hero_titles[CLOUD360_SECTION_COUNT] = {
 
 static const char *const hero_lines[CLOUD360_SECTION_COUNT] = {
     "Um novo jeito de explorar jogos no Xbox 360.",
-    "Catalogo sera exibido apos a integracao online.",
+    "Catalogo JSON local ou HTTPS, ainda sem streaming.",
     "Busca disponivel quando o catalogo estiver conectado.",
     "Seus favoritos e jogos aparecerão apos o login.",
     "Ajustes visuais disponiveis nesta versao.",
@@ -170,7 +171,7 @@ static const char *const cards_home[CLOUD360_CARD_COUNT] = {
     "JOGOS NA NUVEM", "CATALOGO", "SUA COLECAO"
 };
 static const char *const cards_explore[CLOUD360_CARD_COUNT] = {
-    "TODOS OS JOGOS", "GENEROS", "DESTAQUES"
+    "SEM DADOS", "CATALOGO JSON", "FONTE EXTERNA"
 };
 static const char *const cards_library[CLOUD360_CARD_COUNT] = {
     "FAVORITOS", "RECENTES", "MINHA LISTA"
@@ -191,12 +192,31 @@ static const char *card_title(const Cloud360Menu *menu, uint32_t index)
     return cards_home[index];
 }
 
+/* Draw bounded imported text, avoiding a split Unicode sequence. */
+static const char *card_text(const char *src, char dst[28])
+{
+    const size_t len = strlen(src);
+    if (len < 24)
+        return src;
+    size_t bytes = 23;
+    while (bytes > 0 && ((unsigned char)src[bytes] & 0xC0u) == 0x80u)
+        --bytes;
+    memcpy(dst, src, bytes);
+    memcpy(dst + bytes, "...", 4);
+    return dst;
+}
+
 static void card(const Cloud360Menu *menu, const Cloud360UiState *ui,
-                 uint32_t index, uint8_t a)
+                 const Cloud360CatalogView *catalog, uint32_t index, uint8_t a)
 {
     const int32_t x = 42 + (int32_t)index * 405;
     const int32_t y = 426;
-    const bool active = menu->content_focus && menu->card_index == index;
+    const bool imported = menu->selected == CLOUD360_SECTION_EXPLORE &&
+                          catalog->loaded && catalog->count != 0;
+    const bool visible = imported && index < catalog->visible_count;
+    const bool active = menu->content_focus &&
+                        menu->card_index == (imported ?
+                            catalog->first_index + index : index);
     const uint32_t bg = active ? SURFACE_BRIGHT : contrast_panel(menu);
     const uint8_t focus_a = mix_alpha(a, cloud360_ui_focus_alpha(ui));
 
@@ -206,23 +226,48 @@ static void card(const Cloud360Menu *menu, const Cloud360UiState *ui,
         rect(x, y + 176, 380, 20, fade(AZURE, focus_a));
         rect(x, y, 10, 190, fade(SKY, focus_a));
     }
+    if (!visible && imported) {
+        label(x + 50, y + 87, 1, MUTED, a, "SEM JOGO NESTE ESPACO");
+        return;
+    }
+
     rect(x + 20, y + 36, 90, 96, fade(AZURE, active ? 180 : 100));
     cloud360_icon_draw(x + 35, y + 54, card_icons[index], fade(WHITE, a));
-    label(x + 130, y + 56, 1, WHITE, a, card_title(menu, index));
-    label(x + 130, y + 95, 1, contrast_text(menu), a, card_descriptions[index]);
+    char title_buffer[28] = { 0 };
+    char tag_buffer[28] = { 0 };
+    const char *title = visible ?
+        card_text(catalog->visible[index].title, title_buffer) : card_title(menu, index);
+    const char *subtitle = visible ?
+        card_text(catalog->visible[index].category, tag_buffer) : card_descriptions[index];
+
+    label(x + 130, y + 56, 1, WHITE, a, title);
+    label(x + 130, y + 95, 1, contrast_text(menu), a, subtitle);
     label(x + 25, y + 155, 1, active ? SKY : MUTED, a,
+          visible ? "DADO IMPORTADO - NAO JOGAVEL" :
           active ? "A  VISUALIZAR" : "EM PREPARACAO");
 }
 
-static void cards(const Cloud360Menu *menu, const Cloud360UiState *ui)
+static void cards(const Cloud360Menu *menu, const Cloud360UiState *ui,
+                  const Cloud360CatalogView *catalog)
 {
-    const uint8_t a = mix_alpha(cloud360_ui_page_alpha(ui), cloud360_ui_intro_alpha(ui));
-    label(44, 386, 1, WHITE, a, menu->selected == CLOUD360_SECTION_HOME
-          ? "EXPLORE SEU CLOUD360" : "CATEGORIAS");
-    if (menu->content_focus)
+    const uint8_t a = mix_alpha(cloud360_ui_page_alpha(ui),
+                                cloud360_ui_intro_alpha(ui));
+    if (menu->selected == CLOUD360_SECTION_EXPLORE) {
+        label(44, 384, 1, WHITE, a, "EXPLORAR");
+        label(185, 384, 1,
+              catalog->state == CLOUD360_CATALOG_ONLINE_READY ||
+              catalog->state == CLOUD360_CATALOG_LOCAL_READY ? GREEN : SKY,
+              a, cloud360_catalog_state_text(catalog->state));
+        label(800, 384, 1, SKY, a, "X LOCAL   Y HTTPS");
+    } else {
+        label(44, 386, 1, WHITE, a, menu->selected == CLOUD360_SECTION_HOME
+              ? "EXPLORE SEU CLOUD360" : "CATEGORIAS");
+    }
+
+    if (menu->content_focus && menu->selected != CLOUD360_SECTION_EXPLORE)
         label(920, 386, 1, SKY, a, "<  ESCOLHER  >");
     for (uint32_t index = 0; index < CLOUD360_CARD_COUNT; ++index)
-        card(menu, ui, index, a);
+        card(menu, ui, catalog, index, a);
 }
 
 static void search_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
@@ -357,8 +402,8 @@ static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
 static const char *const modal_messages[CLOUD360_SECTION_COUNT][2] = {
     { "O acesso ao xCloud ainda nao esta implementado.",
       "Esta versao mostra apenas a interface, sem iniciar jogos." },
-    { "O catalogo real ainda nao esta conectado.",
-      "Cards demonstrativos nao representam jogos disponiveis." },
+    { "Os dados do catalogo sao informativos.",
+      "Nenhum card inicia streaming ou valida Game Pass." },
     { "Busca indisponivel ate a conexao com o catalogo.",
       "Nenhuma pesquisa esta sendo enviada a servidores." },
     { "Sua biblioteca ainda nao pode ser sincronizada.",
@@ -402,7 +447,8 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
                      const Cloud360Menu *menu, const Cloud360UiState *ui,
                      const Cloud360Network *network,
                      const Cloud360ProbeSnapshot *probe,
-                     const Cloud360HttpsSnapshot *https)
+                     const Cloud360HttpsSnapshot *https,
+                     const Cloud360CatalogView *catalog)
 {
     xsdk_gpu_set_target(width, height);
     header(menu, ui);
@@ -412,7 +458,7 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
     if (menu->selected == CLOUD360_SECTION_HOME ||
         menu->selected == CLOUD360_SECTION_EXPLORE ||
         menu->selected == CLOUD360_SECTION_LIBRARY)
-        cards(menu, ui);
+        cards(menu, ui, catalog);
     else if (menu->selected == CLOUD360_SECTION_SEARCH)
         search_page(menu, ui);
     else if (menu->selected == CLOUD360_SECTION_SETTINGS)

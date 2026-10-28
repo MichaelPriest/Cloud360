@@ -57,7 +57,21 @@ O botão **Y** solicita um GET HTTPS de `https://example.com/` quando
 curl-xenon, mbedtls-xenon e `game:/cacert.pem` estiverem configurados.
 Sem isso, mostra `TLS NAO INTEGRADO`. Nenhuma autenticação foi implementada.
 
-Veja o [plano de integração por módulos](docs/DEVELOPMENT.md) e o [guia de HTTPS/XSDK](docs/HTTPS.md).
+Veja o [plano de integração por módulos](docs/DEVELOPMENT.md), o
+[guia de HTTPS/XSDK](docs/HTTPS.md), o
+[guia de catálogo JSON](docs/CATALOG.md) e a
+[análise do Orbita](docs/ORBITA_REFERENCE.md).
+
+### Catálogo JSON (fonte independente, não é Game Pass)
+
+A aba EXPLORAR carrega até 36 jogos de game:/catalog.json.
+X recarrega a lista local; Y tenta baixar um catálogo HTTPS de uma
+fonte explicitamente configurada em game:/catalog-source.txt,
+somente se curl-xenon + mbedtls-xenon estiverem habilitados
+e o arquivo de certificados estiver disponível.
+Os cards exibem títulos importados, identificados como não jogáveis.
+O parser possui busca C interna, ainda sem teclado virtual.
+Nenhuma sessão Xbox Live, login ou jogo xCloud está disponível.
 
 ## O que ainda não está implementado
 
