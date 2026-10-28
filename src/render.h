@@ -8,7 +8,7 @@
 #include "https.h"
 #include "catalog_runtime.h"
 #include "oauth.h"
-#include "xbl.h"
+#include "xbl_runtime.h"
 #include "ui.h"
 
 /* Draws UI to xsdk eDRAM and resolves it into an xsdk_present frame. */
