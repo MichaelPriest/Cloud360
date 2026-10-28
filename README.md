@@ -51,9 +51,13 @@ pela API XAM via XSDK, indicação de erros e atualização manual pelo botão A
 Esse diagnóstico **não comprova acesso à internet ou serviço xCloud**.
 O botão **X** inicia, em segundo plano, um teste DNS de `www.xbox.com` e
 de conexão TCP na porta 443 com timeout. A tela mostra sucesso ou falha.
-**Ainda não há HTTPS/TLS nem autenticação.**
+**Há código-fonte HTTPS com verificação obrigatória, mas o backend TLS está
+desativado por padrão até a integração das bibliotecas e testes no console.**
+O botão **Y** solicita um GET HTTPS de `https://example.com/` quando
+curl-xenon, mbedtls-xenon e `game:/cacert.pem` estiverem configurados.
+Sem isso, mostra `TLS NAO INTEGRADO`. Nenhuma autenticação foi implementada.
 
-Veja o [plano de integração por módulos](docs/DEVELOPMENT.md).
+Veja o [plano de integração por módulos](docs/DEVELOPMENT.md) e o [guia de HTTPS/XSDK](docs/HTTPS.md).
 
 ## O que ainda não está implementado
 

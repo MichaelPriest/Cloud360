@@ -49,6 +49,42 @@ adequadamente `SO_ERROR`, portanto ele não é utilizado.
 - **Importante:** conexão TCP 443 bem-sucedida não prova TLS válido, acesso
   à conta Xbox ou suporte ao serviço xCloud.
 
+### HTTPS/TLS com verificação estrita — aba REDE
+
+O botão **Y** solicita uma requisição GET de teste a `https://example.com/`,
+em uma thread independente. O resultado aparece na tela sem salvar cookies,
+respostas ou credenciais.
+
+Arquivos: `src/https.h`, `src/https.c` (validação e estado assíncrono),
+`src/https_curl.c` (adaptador curl-xenon).
+
+**Política de segurança:**
+
+- A URL é criada exclusivamente com `https://` a partir de um host DNS e
+  caminho previamente validados; controles e esquemas alternativos são rejeitados.
+- `CURLOPT_SSL_VERIFYPEER=1` e `CURLOPT_SSL_VERIFYHOST=2` são obrigatórios.
+- O bundle de CA `game:/cacert.pem` é indispensável e o relógio do console
+  precisa estar correto para verificar validade dos certificados.
+- TLS 1.2 / HTTP 1.1, sem redirecionamentos e sem proxy.
+- Timeout de 8 segundos na conexão e 15 segundos na transferência.
+- Resposta limitada a 16 KiB, descartada e nunca tratada como catálogo.
+- Erros DNS/TCP, certificado, timeout e HTTP são representados separadamente.
+- **Sem backend habilitado**, a função retorna `TLS NAO INTEGRADO`,
+  sem qualquer conexão de rede. Não existe fallback HTTP.
+
+**Integração das dependências para o futuro build:**
+
+As bibliotecas open source `xenosworks/curl-xenon` e
+`xenosworks/mbedtls-xenon`, no branch `xenon`, são as opções estudadas.
+O CMake aceita `CLOUD360_ENABLE_SECURE_HTTP=ON`, mais
+`CLOUD360_CURL_XENON_DIR` e `CLOUD360_MBEDTLS_XENON_DIR`, para vincular
+essas dependências. Por padrão o recurso está desativado até verificarmos
+compatibilidade no Xbox 360 físico.
+
+Os testes Linux validam a máquina de estados, tamanhos e falhas de TLS
+simuladas, além da compilação e do comportamento sem CA usando libcurl
+do PC. **Isso não demonstra que o TLS funciona no Xbox 360.**
+
 ### Interface e preferências
 
 Navegação com controle, abas, cards, animações suaves e opções persistidas em
@@ -58,7 +94,7 @@ Navegação com controle, abas, cards, animações suaves e opções persistidas
 
 | Prioridade | Subsistema | Resultado esperado |
 |---|---|---|
-| 1 | HTTPS/TLS com certificados | DNS/TCP foi implementado; falta TLS e validação de certificados confiáveis |
+| 1 | HTTPS/TLS validado no hardware | Cliente HTTPS implementado em fonte; falta build com curl-xenon/mbedtls-xenon e teste real de CA/relógio |
 | 2 | Cliente HTTP/JSON | Requisições seguras autenticadas, limites de memória e erros tratados |
 | 3 | Autenticação OAuth Microsoft | Fluxos públicos/autorizados, consentimento do usuário, armazenamento seguro de tokens |
 | 4 | Catálogo e busca | Dados reais carregados da rede, paginação, filtros, imagens otimizadas |

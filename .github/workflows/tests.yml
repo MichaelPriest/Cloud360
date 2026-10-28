@@ -26,6 +26,11 @@ jobs:
       - name: Checkout Cloud360
         uses: actions/checkout@v4
 
+      - name: Install host libcurl for source-only checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libcurl4-openssl-dev pkg-config
+
       - name: Run menu test
         run: |
           gcc -std=c17 -Wall -Wextra -Werror -pedantic \
@@ -63,6 +68,28 @@ jobs:
             -o /tmp/cloud360-probe-platform
           /tmp/cloud360-probe-platform
 
+      - name: Test bounded HTTPS state machine (host mocks)
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic -pthread \
+            src/https.c tests/test_https.c -o /tmp/cloud360-https
+          /tmp/cloud360-https
+
+      - name: Test HTTPS adapter without libcurl
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/https.c src/https_curl.c tests/test_https_curl.c \
+            -pthread -o /tmp/cloud360-https-no-curl
+          /tmp/cloud360-https-no-curl
+
+      - name: Test HTTPS adapter with host libcurl (no network)
+        run: |
+          gcc -std=gnu17 -Wall -Wextra -Werror -pedantic \
+            -DCLOUD360_WITH_CURL=1 \
+            src/https.c src/https_curl.c tests/test_https_curl.c \
+            -pthread $(pkg-config --cflags --libs libcurl) \
+            -o /tmp/cloud360-https-curl
+          /tmp/cloud360-https-curl
+
       - name: Checkout XSDK headers only
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
@@ -78,7 +105,7 @@ jobs:
           gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only \
             -I "$HOME/xsdk/include" \
             src/main.c src/render.c src/icons.c src/network.c \
-            src/probe.c src/probe_platform.c
+            src/probe.c src/probe_platform.c src/https.c src/https_curl.c
 
       - name: Confirm no .xex is generated
         run: |

@@ -297,7 +297,8 @@ static void settings_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
 /* DNS/TCP proves only transport reachability, not Xbox Live or xCloud. */
 static void network_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
                          const Cloud360Network *net,
-                         const Cloud360ProbeSnapshot *probe)
+                         const Cloud360ProbeSnapshot *probe,
+                         const Cloud360HttpsSnapshot *https)
 {
     const uint8_t a = cloud360_ui_page_alpha(ui);
     rect(42, 390, 1192, 226, contrast_panel(menu));
@@ -326,9 +327,17 @@ static void network_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
     label(165, 526, 1, contrast_text(menu), a, "DNS/TCP:");
     label(309, 526, 1, remote_color, a,
           cloud360_probe_status_text(probe->status));
-    label(165, 568, 1, SKY, a, "A  ATUALIZAR REDE       X  TESTAR DNS + TCP");
-    label(165, 593, 1, contrast_text(menu), a,
-          "TCP 443 nao valida TLS, Xbox Live, login ou streaming.");
+    const bool https_ok = https->status == CLOUD360_HTTPS_OK;
+    const bool https_failed = https->status != CLOUD360_HTTPS_IDLE &&
+                              https->status != CLOUD360_HTTPS_RUNNING &&
+                              !https_ok;
+    label(165, 552, 1, contrast_text(menu), a, "HTTPS:");
+    label(309, 552, 1, https_ok ? GREEN : https_failed ? GOLD : SKY,
+          a, cloud360_https_status_text(https->status));
+    label(165, 584, 1, SKY, a,
+          "A REDE     X DNS/TCP     Y HTTPS SEGURO");
+    label(165, 609, 1, contrast_text(menu), a,
+          "TLS exige cacert.pem e curl-xenon. Nao autentica Xbox Live.");
 }
 
 static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)
@@ -392,7 +401,8 @@ static void footer(const Cloud360Menu *menu, const Cloud360UiState *ui)
 void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
                      const Cloud360Menu *menu, const Cloud360UiState *ui,
                      const Cloud360Network *network,
-                     const Cloud360ProbeSnapshot *probe)
+                     const Cloud360ProbeSnapshot *probe,
+                     const Cloud360HttpsSnapshot *https)
 {
     xsdk_gpu_set_target(width, height);
     header(menu, ui);
@@ -408,7 +418,7 @@ void cloud360_render(uint32_t address, uint32_t width, uint32_t height,
     else if (menu->selected == CLOUD360_SECTION_SETTINGS)
         settings_page(menu, ui);
     else if (menu->selected == CLOUD360_SECTION_NETWORK)
-        network_page(menu, ui, network, probe);
+        network_page(menu, ui, network, probe, https);
     else
         about_page(menu, ui);
 

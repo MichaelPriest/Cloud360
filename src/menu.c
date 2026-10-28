@@ -32,6 +32,7 @@ void cloud360_menu_init(Cloud360Menu *menu)
     menu->settings_dirty = false;
     menu->network_refresh_requested = false;
     menu->network_probe_requested = false;
+    menu->network_https_requested = false;
     menu->storage_error = false;
     cloud360_settings_defaults(&menu->settings);
 }
@@ -56,6 +57,7 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
     menu->settings_dirty = false;
     menu->network_refresh_requested = false;
     menu->network_probe_requested = false;
+    menu->network_https_requested = false;
 
     if (pressed & CLOUD360_MENU_BACK)
         return true;
@@ -78,6 +80,11 @@ bool cloud360_menu_step(Cloud360Menu *menu, uint16_t buttons)
     if ((pressed & CLOUD360_MENU_NETWORK_TEST) &&
         menu->selected == CLOUD360_SECTION_NETWORK) {
         menu->network_probe_requested = true;
+        return false;
+    }
+    if ((pressed & CLOUD360_MENU_NETWORK_HTTPS) &&
+        menu->selected == CLOUD360_SECTION_NETWORK) {
+        menu->network_https_requested = true;
         return false;
     }
 

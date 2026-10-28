@@ -18,6 +18,7 @@
 #include "menu.h"
 #include "network.h"
 #include "probe.h"
+#include "https.h"
 #include "render.h"
 #include "settings.h"
 #include "ui.h"
@@ -33,9 +34,12 @@ enum {
 #define SETTINGS_FILE "game:/cloud360.cfg"
 #define PROBE_HOST "www.xbox.com"
 #define PROBE_PORT 443
+#define HTTPS_HOST "example.com"
+#define HTTPS_CA "game:/cacert.pem"
 
-/* Detached XAM DNS worker lives for the whole title lifetime. */
+/* Detached XAM workers live for the whole title lifetime. */
 static Cloud360Probe connectivity;
+static Cloud360Https secure_http;
 
 static uint32_t milliseconds(void)
 {
@@ -77,6 +81,8 @@ static uint16_t controller_buttons(void)
         buttons |= CLOUD360_MENU_NEXT_TAB;
     if (raw & INPUT_GAMEPAD_X)
         buttons |= CLOUD360_MENU_NETWORK_TEST;
+    if (raw & INPUT_GAMEPAD_Y)
+        buttons |= CLOUD360_MENU_NETWORK_HTTPS;
     return buttons;
 }
 
@@ -117,6 +123,16 @@ static void run_title(uint32_t width, uint32_t height)
     const int probe_error = cloud360_probe_init(&connectivity);
     if (probe_error)
         xsdk_log_write("Cloud360: DNS/TCP diagnostic unavailable: %d", probe_error);
+
+    const Cloud360HttpsTransport https_transport = {
+        .fetch = cloud360_https_curl_fetch, .context = NULL
+    };
+    const Cloud360HttpsRequest https_request = {
+        .host = HTTPS_HOST, .path = "/", .ca_file = HTTPS_CA
+    };
+    const int https_error = cloud360_https_init(&secure_http);
+    if (https_error)
+        xsdk_log_write("Cloud360: HTTPS diagnostic unavailable: %d", https_error);
 
     if (cloud360_settings_load(&menu.settings, SETTINGS_FILE))
         xsdk_log_write("Cloud360: preferences loaded");
@@ -165,6 +181,11 @@ static void run_title(uint32_t width, uint32_t height)
                 cloud360_probe_start(&connectivity, &probe_ops,
                                      PROBE_HOST, PROBE_PORT))
                 xsdk_log_write("Cloud360: starting independent DNS/TCP diagnostic");
+
+            if (!https_error && menu.network_https_requested &&
+                network.status == CLOUD360_NET_LOCAL_IP &&
+                cloud360_https_start(&secure_http, &https_transport, &https_request))
+                xsdk_log_write("Cloud360: HTTPS TLS diagnostic initiated");
         }
 
         uint32_t address = 0;
@@ -175,10 +196,13 @@ static void run_title(uint32_t width, uint32_t height)
         }
 
         Cloud360ProbeSnapshot probe_result = { 0 };
+        Cloud360HttpsSnapshot https_result = { 0 };
         if (!probe_error)
             cloud360_probe_snapshot(&connectivity, &probe_result);
+        if (!https_error)
+            cloud360_https_snapshot(&secure_http, &https_result);
         cloud360_render(address, width, height, &menu, &ui,
-                        &network, &probe_result);
+                        &network, &probe_result, &https_result);
         xsdk_present_end();
     }
 }

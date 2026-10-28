@@ -30,7 +30,8 @@ enum {
     CLOUD360_MENU_BACK = 1u << 6,
     CLOUD360_MENU_PREVIOUS_TAB = 1u << 7,
     CLOUD360_MENU_NEXT_TAB = 1u << 8,
-    CLOUD360_MENU_NETWORK_TEST = 1u << 9
+    CLOUD360_MENU_NETWORK_TEST = 1u << 9,
+    CLOUD360_MENU_NETWORK_HTTPS = 1u << 10
 };
 
 typedef struct {
@@ -43,6 +44,7 @@ typedef struct {
     bool settings_dirty;
     bool network_refresh_requested;
     bool network_probe_requested;
+    bool network_https_requested;
     bool storage_error;
     Cloud360Settings settings;
 } Cloud360Menu;
