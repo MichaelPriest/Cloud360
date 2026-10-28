@@ -36,16 +36,16 @@ O código tenta mostrar a tela de splash, inicializar a GPU e o vídeo em 720p, 
 
 No PowerShell do Windows, execute:
 
-\`\`\`powershell
+```powershell
 wsl --install -d Debian
-\`\`\`
+```
 
 Abra o Debian, crie seu usuário Linux e instale as dependências:
 
-\`\`\`bash
+```bash
 sudo apt update
 sudo apt install -y build-essential bison flex texinfo libgmp-dev libmpfr-dev libmpc-dev curl xz-utils patch python3 cmake ninja-build git
-\`\`\`
+```
 
 A documentação atual do xsdk exige CMake 3.25 ou mais recente e Python 3.11 ou mais recente.
 
@@ -53,18 +53,18 @@ A documentação atual do xsdk exige CMake 3.25 ou mais recente e Python 3.11 ou
 
 Execute dentro do Debian. É recomendável trabalhar dentro do filesystem Linux (`~/projects`), não em `/mnt/c`, para que a compilação seja mais rápida.
 
-\`\`\`bash
+```bash
 git clone https://github.com/xenosworks/xsdk.git ~/xsdk
 cd ~/xsdk
 PREFIX=$HOME/xsdk-gcc WORK=$HOME/xsdk-gcc-work JOBS=$(nproc) tools/toolchain/build.sh
 make -j"$(nproc)"
-\`\`\`
+```
 
 O primeiro comando de build prepara o compilador cruzado. O comando `make` compila a biblioteca xsdk e as ferramentas usadas pelos títulos. Pode levar alguns minutos e usar vários gigabytes. Se ocorrer uma falha, pare e examine a primeira mensagem de erro e os logs antes de repetir.
 
 ## 3. Baixar e compilar o Cloud360
 
-\`\`\`bash
+```bash
 mkdir -p ~/projects
 cd ~/projects
 git clone https://github.com/MichaelPriest/Cloud360.git
@@ -74,13 +74,13 @@ cmake -S . -B build -G Ninja \
   -DXSDK_TOOLCHAIN="$HOME/xsdk-gcc" \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build
-\`\`\`
+```
 
 Se tudo compilar corretamente, o alvo está configurado para gerar:
 
-\`\`\`text
+```text
 build/cloud360.xex
-\`\`\`
+```
 
 Este é o resultado esperado, não uma garantia. Se o build falhar, copie aqui o erro completo desde a primeira mensagem de falha; podemos corrigir o código com base no erro real.
 
