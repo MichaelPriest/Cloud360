@@ -60,14 +60,49 @@ O CMake define `CLOUD360_WITH_MBEDTLS` somente quando o
 transporte HTTPS opcional é configurado com mbedtls-xenon.
 Em modo padrão o módulo ICE criptográfico falha fechado.
 
+## Gerenciador limitado de pares de candidatos (nova etapa)
+
+`src/ice_agent.h` e `src/ice_agent.c` acrescentam um agendador
+de verificações (não um agente ICE completo):
+
+- Capacidade máxima de **8 destinos IPv4/UDP**, sem duplicatas,
+  com seleção pela prioridade de candidato.
+- Até **5 envios por candidato**, com retransmissão do mesmo
+  transaction ID e RTO de 250, 500, 1000, 2000 e 4000 ms.
+- Prazo máximo de **12 segundos por par**, failover e
+  encerramento quando todos os destinos forem esgotados.
+- Checagem da **origem IPv4/porta exata**, transaction ID, HMAC,
+  estado do par, deadline e número de geração da tentativa.
+- Geração dos IDs de 96 bits por callback CSPRNG obrigatório;
+  ausência de crypto/aleatoriedade segura causa falha explícita.
+- Cancelamento com invalidação de respostas tardias, limpeza de
+  senha ICE e dados de transação, sem credenciais em snapshots.
+- Estado bem-sucedido nomeado `VERIFIED_NOT_NOMINATED`:
+  **não declara ICE conectado, não emite PEER_CONNECTED
+  e não transmite áudio ou vídeo**.
+
+O teste `tests/test_ice_agent.c` injeta transporte, HMAC OpenSSL
+e gerador de transações **determinístico somente para testes**.
+Exercita priorização, intervalos e retransmissões, falha de envio,
+cancelamento, integridade, endereço incorreto, limite de pares,
+rollover do relógio monotônico e troca de candidato.
+
+**Produção:** `main.c` não inicia o gerenciador nem abre UDP.
+Sem adaptador de sessão autorizado, SDP/credenciais verificadas
+e CSPRNG real do console, não há ligação ao xCloud.
+O código não implementa nomination/consent, ICE role conflict,
+checagem dos pares de origem ou validação do certificado DTLS.
+Uma resposta STUN autenticada não autoriza streaming.
+
 ## Próximos requisitos antes de aceitar um par
 
 1. Integrar o backend seguro de sessões do serviço autorizado,
    sem presumir endpoints não públicos.
-2. Implementar checklist e state machine ICE, com pares locais/
-   remotos, nominação, controle de papel e retransmissões.
-3. Verificar origem da resposta UDP contra o par esperado,
-   além do transaction ID e HMAC do pacote STUN.
+2. Evoluir o agendador limitado para **checklist ICE completo**,
+   com pares locais/remotos reais, nomination, conflitos de papel
+   (erro 487), prioridades de pares e retransmissões com jitter.
+3. Fazer a ligação controlada ao socket UDP e validar também
+   o par local/origem, transaction ID e HMAC contra a sessão correta.
 4. Implementar consent freshness contínuo, rate limit e TURN
    sob necessidade, validando recursos de NAT no console.
 5. Implementar DTLS com certificado efetivamente comparado ao

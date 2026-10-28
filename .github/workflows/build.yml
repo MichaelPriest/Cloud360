@@ -112,6 +112,13 @@ jobs:
             src/udp.c tests/test_udp.c -o /tmp/cloud360-udp
           /tmp/cloud360-udp
 
+      - name: Test ICE pair scheduling without cloud endpoints
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/ice.c src/ice_agent.c src/stun.c tests/test_ice_agent.c \
+            -lcrypto -o /tmp/cloud360-ice-agent
+          /tmp/cloud360-ice-agent
+
       - name: Test SDP/ICE, STUN and session state machine (host GCC)
         run: |
           gcc -std=c17 -Wall -Wextra -Werror -pedantic \
@@ -136,7 +143,7 @@ jobs:
           /tmp/cloud360-icons-tests
 
       - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c src/catalog.c src/catalog_runtime.c src/oauth.c src/oauth_json.c src/oauth_runtime.c src/xbl.c src/xbl_runtime.c src/session.c src/rtc.c src/stun.c src/ice.c src/ice_crypto.c src/udp.c
+        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c src/catalog.c src/catalog_runtime.c src/oauth.c src/oauth_json.c src/oauth_runtime.c src/xbl.c src/xbl_runtime.c src/session.c src/rtc.c src/stun.c src/ice.c src/ice_agent.c src/ice_crypto.c src/udp.c
 
       - name: Identify XSDK revision
         id: xsdk_revision

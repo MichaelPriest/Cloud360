@@ -117,6 +117,14 @@ A função HMAC usa OpenSSL apenas nos testes de host e
 `mbedtls-xenon` quando explicitamente habilitado para o XSDK.
 Sem backend criptográfico, a verificação falha de forma segura.
 
+O `src/ice_agent.c` organiza até oito pares remotos IPv4/UDP
+por prioridade, emite checks STUN com HMAC e identificador de transação
+criptográfico fornecido pelo futuro backend, reutiliza o ID nos reenvios
+e aplica até cinco tentativas progressivas por candidato. Respostas
+fora do prazo, de outra origem, de outra geração ou com HMAC inválido
+não são aceitas. Um check aprovado aparece apenas como
+**STUN autenticado, ICE não concluído**: não concede uma sessão WebRTC.
+
 Esses componentes são parsers/protocolos preparatórios, não
 equivalem a uma conexão WebRTC. O console continua sem sessão xCloud
 real, ICE autenticado, DTLS-SRTP, vídeo H.264, áudio Opus ou catálogo

@@ -47,6 +47,9 @@ Detalhes em ORBITA_REFERENCE.md.
   (parser público não aceita MESSAGE-INTEGRITY sem verificação).
 - `ice.c`: checks com HMAC-SHA1 validado por biblioteca criptográfica
   configurável; ainda não implementa um agente ICE completo.
+- `ice_agent.c`: agenda até oito destinos, checa respostas autenticadas
+  por origem/porta/geração e limita reenvios; não faz nomination,
+  consent freshness nem declara o par conectado.
 - `ice_crypto.c`: adaptador mbedTLS opcional, com falha segura sem backend.
 - `udp.c`: envio/recebimento IPv4 com socket não bloqueante e limite
   de datagramas; nenhum servidor remoto é acionado em produção.

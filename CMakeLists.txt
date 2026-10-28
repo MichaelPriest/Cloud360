@@ -24,6 +24,7 @@ add_executable(cloud360
     src/rtc.c
     src/stun.c
     src/ice.c
+    src/ice_agent.c
     src/ice_crypto.c
     src/udp.c
 )

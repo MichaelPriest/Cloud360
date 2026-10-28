@@ -85,9 +85,12 @@ envia e recebe datagramas com limites de tamanho e origem
 visível. O teste de troca UDP acontece em localhost Linux,
 não com servidores remotos ou Xbox 360.
 
-**Ainda não existe cliente ICE funcional:** faltam verificação
-de origem/candidate pair, retransmissões, controle de papéis,
-conectividade bidirecional, consentimento, TURN, DTLS e SRTP.
+**Ainda não existe cliente ICE funcional:** o agendador
+`src/ice_agent.c` já valida a origem IPv4/UDP e permite até cinco
+checks autenticados por candidato, priorização e failover, mas
+não implementa o checklist, controle de conflitos de papel,
+conectividade bidirecional, consentimento, nomination ou TURN.
+
 A UI SESSAO continua com o provedor desativado.
 Mais detalhes em [ICE_UDP.md](ICE_UDP.md).
 
@@ -110,9 +113,10 @@ O build de produção ainda passa `transport_available=false`.
    intercâmbio SDP/ICE (API estável e permitida).
 2. Validar a implementação UDP IPv4 em hardware XSDK e adicionar
    CSPRNG confiável (sem `rand()` ou timestamp como ID de transação).
-3. Conectar os helpers MESSAGE-INTEGRITY ao checklist ICE completo,
-   com candidate pairing, retransmissões, consentimento e TURN quando
-   necessário; IPv6/TCP opcional conforme redes suportadas.
+3. Integrar o agendador `src/ice_agent.c` a um checklist ICE
+   real com retransmissões, pares locais/remotos, nomination,
+   conflitos de papel, consentimento e TURN quando necessário;
+   IPv6/TCP opcional conforme redes suportadas.
 4. DTLS com certificado verificado contra a fingerprint
    recebida; SRTP e anti-replay.
 5. RTP/H.264, Opus e canais de dados de entrada do controle.

@@ -200,6 +200,26 @@ autorizado. A produção não abre sockets nem declara
 `PEER_CONNECTED` com base na simples verificação HMAC.
 Ver [ICE_UDP.md](ICE_UDP.md).
 
+## Agendador de checks ICE e priorização de candidatos
+
+`src/ice_agent.c` recebe até oito candidatos IPv4/UDP,
+prioriza pela prioridade anunciada, cria IDs de transação via
+CSPRNG injetado, gera STUN Binding autenticado e mantém
+intervalos de retransmissão controlados. Cada candidato recebe
+até cinco envios. Respostas recebidas são aceitas apenas com
+endereço/porta de origem idênticos ao par atual, transaction ID
+correto, HMAC válido, prazo em vigor e mesma geração da tentativa.
+Falha um par, testa o próximo e encerra quando esgotados.
+
+Um check aprovado marca somente `VERIFIED_NOT_NOMINATED`;
+a máquina `session.c` **não é avançada** com base nesse estado.
+O agendador não é iniciado pelo `main.c` e o aplicativo continua
+sem conexão xCloud. Testes Linux utilizam um CSPRNG simulado apenas
+no próprio teste, OpenSSL para HMAC e callback de envio fictício.
+Faltam nomeação, controle de papéis ICE, consent freshness,
+DTLS-SRTP e decodificação de mídia no console.
+Ver [ICE_UDP.md](ICE_UDP.md).
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |
@@ -211,7 +231,7 @@ Ver [ICE_UDP.md](ICE_UDP.md).
 | 5 | Catálogo e busca | Dados reais autorizados carregados da rede, paginação, filtros, imagens otimizadas |
 | 5 | Biblioteca e favoritos | Estado da conta sincronizado, cache local com integridade |
 | 6 | Sessões na nuvem | Máquina de estados com fila, timeouts e reconexão; faltam provedor autorizado e testes físicos |
-| 7 | WebRTC e transporte | SDP, STUN, checks HMAC-SHA1 e UDP não bloqueante em fonte; faltam ICE completo, DTLS-SRTP e testes físicos |
+| 7 | WebRTC e transporte | SDP, checks HMAC, UDP e agendador de até 8 pares com failover; faltam ICE completo, DTLS-SRTP e hardware |
 | 8 | Vídeo e áudio | Viabilidade de decodificar H.264 e áudio no hardware Xenon |
 | 9 | Controle e desempenho | Envio de input, latência, reconexão, métricas e robustez |
 | 10 | Testes finais do XEX | Testes e diagnóstico na Aurora e no console Xbox 360 físico |
