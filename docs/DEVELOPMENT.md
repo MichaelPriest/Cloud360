@@ -156,6 +156,26 @@ um provedor de sessões conectado; pressionar A verifica apenas
 os pré-requisitos locais XSTS/transporte e retorna erro explícito.
 Não usa endpoints privados nem simula uma partida como funcional.
 
+## WebRTC: infraestrutura SDP / ICE / STUN
+
+Foi implementado o parser limitado `src/rtc.c`, que valida um SDP
+de resposta, a presença de SHA-256 DTLS fingerprint, ICE ufrag/pwd,
+BUNDLE, RTCP mux, codec H.264/90000 e candidatos IPv4/UDP.
+A máquina de sessão recusa `PEER_CONNECTED` antes de receber
+um SDP sintaticamente válido; isso **não substitui autenticação
+DTLS nem teste real de conectividade ICE**.
+
+`src/stun.c` constrói mensagens Binding com ID de transação
+fornecido por CSPRNG do futuro backend e valida respostas STUN
+IPv4/XOR-MAPPED-ADDRESS. O parser confere tamanho, cookie, ID,
+atributos obrigatórios e CRC FINGERPRINT quando presente.
+Não estabelece conectividade ICE (faltam autenticação HMAC,
+consentimento, nomination e sockets UDP).
+
+Há testes de pacotes/candidatos/SDP falsos em Linux e verificação
+de sintaxe dos fontes com XSDK; nenhum endpoint Microsoft foi
+contatado e nenhum XEX foi compilado. Ver [WEBRTC.md](WEBRTC.md).
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |
@@ -167,7 +187,7 @@ Não usa endpoints privados nem simula uma partida como funcional.
 | 5 | Catálogo e busca | Dados reais autorizados carregados da rede, paginação, filtros, imagens otimizadas |
 | 5 | Biblioteca e favoritos | Estado da conta sincronizado, cache local com integridade |
 | 6 | Sessões na nuvem | Máquina de estados com fila, timeouts e reconexão; faltam provedor autorizado e testes físicos |
-| 7 | WebRTC e transporte | Sinalização, ICE/STUN/TURN, DTLS/SRTP, baixa latência |
+| 7 | WebRTC e transporte | Parsing SDP/ICE IPv4 e STUN Binding em fonte; faltam UDP, ICE autenticado, DTLS-SRTP e hardware |
 | 8 | Vídeo e áudio | Viabilidade de decodificar H.264 e áudio no hardware Xenon |
 | 9 | Controle e desempenho | Envio de input, latência, reconexão, métricas e robustez |
 | 10 | Testes finais do XEX | Testes e diagnóstico na Aurora e no console Xbox 360 físico |

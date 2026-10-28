@@ -39,6 +39,14 @@ A transição para STREAMING depende de um evento de
 primeiro vídeo vindo do futuro decodificador real. O
 aplicativo não produz esse evento em produção hoje.
 
+Agora, para aceitar PEER_CONNECTED durante SIGNALING, o coordenador
+exige antes que `cloud360_session_remote_sdp()` tenha validado uma
+resposta SDP com ICE/DTLS/H.264/RTCP mux. Uma resposta SDP válida
+**não comprova** negociação ICE nem autenticação DTLS: o evento
+PEER_CONNECTED deverá vir do futuro transportador real.
+A flag de SDP é reinicializada em cada reconexão.
+Ver [WEBRTC.md](WEBRTC.md).
+
 ## Limites implementados
 
 - Poll de estado: no máximo uma solicitação por segundo.

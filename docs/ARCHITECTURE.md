@@ -42,6 +42,9 @@ Detalhes em ORBITA_REFERENCE.md.
 - `main.c`: inicialização da GPU/controle/XEX e loop de renderização.
 - `session.c`: estados de sessão, fila, sinalização, quadro de mídia,
   reconexão, timeouts e cancelamento por geração. Nenhum servidor conectado.
+- `rtc.c`: parsing SDP e candidatos ICE com validação e limites estritos.
+- `stun.c`: codec de mensagens Binding e análise XOR-MAPPED-ADDRESS.
+  Ainda não implementa UDP/ICE autenticado.
 
 ## Referência de interface
 

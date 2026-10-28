@@ -1,4 +1,5 @@
 #include "session.h"
+#include "rtc.h"
 
 #include <string.h>
 
@@ -67,6 +68,9 @@ bool cloud360_session_begin(Cloud360Session *session, const char *title_id,
     session->queue_eta_seconds = 0;
     session->queue_started = false;
     session->reconnect_attempts = 0;
+    session->remote_sdp_validated = false;
+    session->remote_ipv4_candidates = 0;
+    session->h264_payload_type = 0;
     session->title_id[0] = '\0';
 
     if (!xsts_authorized) {
@@ -95,6 +99,9 @@ static void reconnect_or_fail(Cloud360Session *session, uint32_t now)
         return;
     }
     ++session->reconnect_attempts;
+    session->remote_sdp_validated = false;
+    session->remote_ipv4_candidates = 0;
+    session->h264_payload_type = 0;
     transition(session, CLOUD360_SESSION_RECONNECTING, now);
 }
 
@@ -172,7 +179,8 @@ bool cloud360_session_event(Cloud360Session *session, uint32_t generation,
             }
             break;
         case CLOUD360_SESSION_SIGNALING:
-            if (event == CLOUD360_SESSION_EVT_PEER_CONNECTED) {
+            if (event == CLOUD360_SESSION_EVT_PEER_CONNECTED &&
+                session->remote_sdp_validated) {
                 transition(session, CLOUD360_SESSION_CONNECTING, now);
                 return true;
             }
@@ -213,6 +221,22 @@ bool cloud360_session_event(Cloud360Session *session, uint32_t generation,
         default: break;
     }
     return false;
+}
+
+bool cloud360_session_remote_sdp(Cloud360Session *session, uint32_t generation,
+                                 const char *answer, size_t length)
+{
+    if (!session || session->phase != CLOUD360_SESSION_SIGNALING ||
+        generation != session->generation || session->remote_sdp_validated)
+        return false;
+    Cloud360RtcSdp parsed = { 0 };
+    if (!cloud360_rtc_sdp_parse(answer, length, &parsed))
+        return false;
+    session->remote_sdp_validated = true;
+    session->remote_ipv4_candidates = parsed.ipv4_udp_candidates;
+    session->h264_payload_type = parsed.h264_payload_type;
+    /* No transition: SDP syntax does not establish ICE or verify DTLS. */
+    return true;
 }
 
 bool cloud360_session_poll_due(Cloud360Session *session, uint32_t now)
@@ -286,6 +310,8 @@ void cloud360_session_cancel(Cloud360Session *session, uint32_t now)
     session->error = CLOUD360_SESSION_ERR_NONE;
     session->queue_position = 0;
     session->queue_eta_seconds = 0;
+    session->remote_sdp_validated = false;
+    session->remote_ipv4_candidates = 0;
     if (phase_active(session->phase) &&
         session->phase != CLOUD360_SESSION_STOPPING)
         transition(session, CLOUD360_SESSION_STOPPING, now);
@@ -309,6 +335,9 @@ void cloud360_session_snapshot(const Cloud360Session *session,
     view->reconnect_attempts = session->reconnect_attempts;
     view->server_error = session->server_error;
     view->generation = session->generation;
+    view->remote_sdp_validated = session->remote_sdp_validated;
+    view->remote_ipv4_candidates = session->remote_ipv4_candidates;
+    view->h264_payload_type = session->h264_payload_type;
     view->can_retry = session->phase == CLOUD360_SESSION_FAILED ||
                       session->phase == CLOUD360_SESSION_STOPPED ||
                       session->phase == CLOUD360_SESSION_NO_TRANSPORT ||

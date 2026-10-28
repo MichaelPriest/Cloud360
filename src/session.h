@@ -86,6 +86,9 @@ typedef struct {
     uint32_t reconnect_attempts;
     uint32_t server_error;
     bool queue_started;
+    bool remote_sdp_validated;
+    uint32_t remote_ipv4_candidates;
+    uint8_t h264_payload_type;
 } Cloud360Session;
 
 typedef struct {
@@ -100,6 +103,9 @@ typedef struct {
     uint32_t generation;
     bool can_retry;
     bool requires_media;
+    bool remote_sdp_validated;
+    uint32_t remote_ipv4_candidates;
+    uint8_t h264_payload_type;
 } Cloud360SessionView;
 
 void cloud360_session_init(Cloud360Session *session);
@@ -116,6 +122,13 @@ bool cloud360_session_event(Cloud360Session *session, uint32_t generation,
                              Cloud360SessionEvent event, uint32_t now_ms,
                              uint32_t queue_pos, uint32_t eta_seconds,
                              uint32_t server_error);
+
+/* Parse the remote SDP answer with strict bounds, BUNDLE, ICE credentials,
+ * SHA-256 DTLS fingerprint, RTCP mux and H.264. A valid SDP is necessary
+ * but not sufficient: only a real ICE/DTLS backend may emit PEER_CONNECTED.
+ * Caller must not log SDP ICE passwords or other remote credentials. */
+bool cloud360_session_remote_sdp(Cloud360Session *session, uint32_t generation,
+                                 const char *answer, size_t length);
 
 /* Poll /state at <=1Hz; the actual provider performs the request off-thread. */
 bool cloud360_session_poll_due(Cloud360Session *session, uint32_t now_ms);

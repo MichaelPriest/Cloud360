@@ -482,9 +482,20 @@ static void session_page(const Cloud360Menu *menu, const Cloud360UiState *ui,
                        "WEBRTC / H264 / OPUS: AINDA NAO INTEGRADOS");
     }
     label(164, 522, 1, failed ? GOLD : contrast_text(menu), alpha, line);
-    label(164, 571, 1, SKY, alpha, "A VERIFICAR PRE-REQUISITOS    X ENCERRAR");
-    label(164, 601, 1, contrast_text(menu), alpha,
-          "Nao inicia partidas. Nao usa API privada, token ou sessao ficticia.");
+    if (session->remote_sdp_validated) {
+        char parsed[110] = { 0 };
+        (void)snprintf(parsed, sizeof parsed,
+                       "SDP VALIDADO: H264 PT %u, %u CANDIDATOS IPV4/UDP",
+                       (unsigned)session->h264_payload_type,
+                       (unsigned)session->remote_ipv4_candidates);
+        label(164, 547, 1, GREEN, alpha, parsed);
+    } else {
+        label(164, 547, 1, contrast_text(menu), alpha,
+              "SDP / ICE / STUN: VALIDADORES PRONTOS, SEM CONEXAO UDP");
+    }
+    label(164, 577, 1, SKY, alpha, "A VERIFICAR PRE-REQUISITOS    X ENCERRAR");
+    label(164, 604, 1, contrast_text(menu), alpha,
+          "SEM PROVEDOR XCLOUD, DTLS-SRTP OU DECODIFICACAO DE VIDEO.");
 }
 
 static void about_page(const Cloud360Menu *menu, const Cloud360UiState *ui)

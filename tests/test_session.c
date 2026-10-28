@@ -7,6 +7,47 @@
 
 static Cloud360Session session;
 static Cloud360SessionView view;
+static uint32_t generation(void);
+
+/* The SDP is a synthetic fixture, never a successful media connection. */
+static const char *const test_sdp =
+    "v=0\n"
+    "o=- 0 0 IN IP4 127.0.0.1\n"
+    "s=-\n"
+    "t=0 0\n"
+    "a=group:BUNDLE video0\n"
+    "a=ice-ufrag:abcdefgh\n"
+    "a=ice-pwd:ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890\n"
+    "a=fingerprint:sha-256 "
+    "00:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:"
+    "10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F\n"
+    "a=setup:active\n"
+    "m=video 9 UDP/TLS/RTP/SAVPF 96\n"
+    "a=mid:video0\n"
+    "a=rtcp-mux\n"
+    "a=rtpmap:96 H264/90000\n"
+    "a=candidate:1 1 udp 100 192.0.2.4 4000 typ host\n";
+
+static void validate_remote_answer(void)
+{
+    assert(session.phase == CLOUD360_SESSION_SIGNALING);
+    assert(!session.remote_sdp_validated);
+    assert(!cloud360_session_event(&session, generation(),
+                                   CLOUD360_SESSION_EVT_PEER_CONNECTED,
+                                   session.phase_since_ms + 1, 0, 0, 0));
+    assert(!cloud360_session_remote_sdp(&session, generation(), "bad", 3));
+    assert(!cloud360_session_remote_sdp(&session, generation() - 1,
+                                        test_sdp, strlen(test_sdp)));
+    assert(cloud360_session_remote_sdp(&session, generation(),
+                                      test_sdp, strlen(test_sdp)));
+    assert(session.remote_sdp_validated);
+    assert(session.remote_ipv4_candidates == 1);
+    assert(session.h264_payload_type == 96);
+    assert(!cloud360_session_remote_sdp(&session, generation(),
+                                       test_sdp, strlen(test_sdp)));
+}
+
+
 
 static uint32_t generation(void)
 {
@@ -70,6 +111,7 @@ static void test_full_lifecycle_and_reconnect(void)
     assert(session.phase == CLOUD360_SESSION_READY_TO_CONNECT);
     event_at(CLOUD360_SESSION_EVT_SIGNAL_ACCEPTED, 6100);
     assert(session.phase == CLOUD360_SESSION_SIGNALING);
+    validate_remote_answer();
     event_at(CLOUD360_SESSION_EVT_PEER_CONNECTED, 6200);
     assert(session.phase == CLOUD360_SESSION_CONNECTING);
     event_at(CLOUD360_SESSION_EVT_SIGNAL_ACCEPTED, 6300);
@@ -79,6 +121,8 @@ static void test_full_lifecycle_and_reconnect(void)
                                    6400, 0, 0, 0));
     event_at(CLOUD360_SESSION_EVT_FIRST_VIDEO, 6500);
     assert(session.phase == CLOUD360_SESSION_STREAMING);
+    cloud360_session_snapshot(&session, 6500, &view);
+    assert(view.remote_sdp_validated && view.remote_ipv4_candidates == 1);
 
     event_at(CLOUD360_SESSION_EVT_VIDEO_FRAME, 15000);
     assert(!cloud360_session_tick(&session, 26999, true));
@@ -86,6 +130,7 @@ static void test_full_lifecycle_and_reconnect(void)
     assert(session.phase == CLOUD360_SESSION_RECONNECTING);
     assert(session.reconnect_attempts == 1);
     event_at(CLOUD360_SESSION_EVT_RECONNECT_READY, 27100);
+    validate_remote_answer();
     event_at(CLOUD360_SESSION_EVT_PEER_CONNECTED, 27200);
     event_at(CLOUD360_SESSION_EVT_SIGNAL_ACCEPTED, 27300);
     event_at(CLOUD360_SESSION_EVT_FIRST_VIDEO, 27400);
@@ -94,6 +139,7 @@ static void test_full_lifecycle_and_reconnect(void)
     assert(session.phase == CLOUD360_SESSION_RECONNECTING);
     assert(session.reconnect_attempts == 2);
     event_at(CLOUD360_SESSION_EVT_RECONNECT_READY, 27600);
+    validate_remote_answer();
     event_at(CLOUD360_SESSION_EVT_PEER_CONNECTED, 27700);
     event_at(CLOUD360_SESSION_EVT_SIGNAL_ACCEPTED, 27800);
     event_at(CLOUD360_SESSION_EVT_FIRST_VIDEO, 27900);

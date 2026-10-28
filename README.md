@@ -65,7 +65,8 @@ Veja o [plano de integração por módulos](docs/DEVELOPMENT.md), o
 [análise do Orbita](docs/ORBITA_REFERENCE.md) e o
 [guia de login Microsoft](docs/AUTH.md) e
 [guia da integração Xbox/XSTS](docs/XSTS.md) e o
-[guia do ciclo de sessões de jogo](docs/SESSION.md).
+[guia do ciclo de sessões de jogo](docs/SESSION.md) e o
+[guia da infraestrutura WebRTC/SDP/STUN](docs/WEBRTC.md).
 
 ### Catálogo JSON (fonte independente, não é Game Pass)
 
@@ -98,8 +99,18 @@ um provedor xCloud integrado neste momento, o aplicativo informa
 `PROVEDOR XCLOUD NAO INTEGRADO` sem iniciar rede ou criar sessão
 fictícia. **X** cancela/encerra o estado local.
 
-Os testes usam eventos de um backend simulado; o console continua
-sem WebRTC, vídeo H.264, áudio Opus ou catálogo de jogos autorizado.
+Os testes usam eventos de um backend simulado. O módulo
+`src/rtc.c` valida respostas SDP e candidatos ICE IPv4/UDP,
+exige fingerprint DTLS SHA-256, credenciais ICE, H.264 e RTCP mux.
+A máquina de sessão agora exige **SDP válido** antes de aceitar
+o evento de par conectado. O módulo `src/stun.c` monta mensagens
+Binding e valida respostas IPv4/XOR-MAPPED-ADDRESS e FINGERPRINT
+conforme RFC 8489, sem sockets, uso de credenciais ou tráfego.
+
+Esses componentes são parsers/protocolos preparatórios, não
+equivalem a uma conexão WebRTC. O console continua sem sessão xCloud
+real, ICE autenticado, DTLS-SRTP, vídeo H.264, áudio Opus ou catálogo
+de jogos autorizado. Não há dependências GPL incorporadas.
 
 ## O que ainda não está implementado
 

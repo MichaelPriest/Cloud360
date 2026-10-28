@@ -21,6 +21,8 @@ add_executable(cloud360
     src/xbl.c
     src/xbl_runtime.c
     src/session.c
+    src/rtc.c
+    src/stun.c
 )
 set_target_properties(cloud360 PROPERTIES C_STANDARD 17 C_EXTENSIONS ON)
 target_compile_options(cloud360 PRIVATE -Wall -Wextra -Werror)

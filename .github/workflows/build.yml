@@ -102,10 +102,17 @@ jobs:
             -o /tmp/cloud360-xbl-runtime
           /tmp/cloud360-xbl-runtime
 
-      - name: Test cloud session state machine without XEX
+      - name: Test SDP/ICE, STUN and session state machine (host GCC)
         run: |
           gcc -std=c17 -Wall -Wextra -Werror -pedantic \
-            src/session.c tests/test_session.c -o /tmp/cloud360-session
+            src/rtc.c tests/test_rtc.c -o /tmp/cloud360-rtc
+          /tmp/cloud360-rtc
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/stun.c tests/test_stun.c -o /tmp/cloud360-stun
+          /tmp/cloud360-stun
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/session.c src/rtc.c tests/test_session.c \
+            -o /tmp/cloud360-session
           /tmp/cloud360-session
 
       - name: Checkout open XSDK
@@ -119,7 +126,7 @@ jobs:
           /tmp/cloud360-icons-tests
 
       - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c src/catalog.c src/catalog_runtime.c src/oauth.c src/oauth_json.c src/oauth_runtime.c src/xbl.c src/xbl_runtime.c src/session.c
+        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c src/network.c src/probe.c src/probe_platform.c src/https.c src/https_curl.c src/catalog.c src/catalog_runtime.c src/oauth.c src/oauth_json.c src/oauth_runtime.c src/xbl.c src/xbl_runtime.c src/session.c src/rtc.c src/stun.c
 
       - name: Identify XSDK revision
         id: xsdk_revision
