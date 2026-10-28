@@ -34,10 +34,32 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
 
+      - name: Identify XSDK revision
+        id: xsdk_revision
+        run: echo "sha=$(git -C "$HOME/xsdk" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore XSDK toolchain cache
+        id: toolchain_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/xsdk-gcc
+            ~/xsdk-gcc-work
+          key: xsdk-toolchain-ubuntu-24.04-${{ steps.xsdk_revision.outputs.sha }}
+
       - name: Build XSDK cross-compiler
         run: |
           cd "$HOME/xsdk"
           PREFIX="$HOME/xsdk-gcc" WORK="$HOME/xsdk-gcc-work" JOBS="$(nproc)" bash tools/toolchain/build.sh
+
+      - name: Save XSDK toolchain cache
+        if: success() && steps.toolchain_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/xsdk-gcc
+            ~/xsdk-gcc-work
+          key: xsdk-toolchain-ubuntu-24.04-${{ steps.xsdk_revision.outputs.sha }}
 
       - name: Build XSDK libraries
         run: |
