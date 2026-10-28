@@ -35,18 +35,14 @@ jobs:
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
 
       - name: Build XSDK cross-compiler
-        working-directory: ${{ env.HOME }}/xsdk
-        env:
-          PREFIX: ${{ env.HOME }}/xsdk-gcc
-          WORK: ${{ env.HOME }}/xsdk-gcc-work
-          JOBS: 2
         run: |
-          tools/toolchain/build.sh
+          cd "$HOME/xsdk"
+          PREFIX="$HOME/xsdk-gcc" WORK="$HOME/xsdk-gcc-work" JOBS=2 tools/toolchain/build.sh
 
       - name: Build XSDK libraries
-        working-directory: ${{ env.HOME }}/xsdk
         run: |
           echo "$HOME/xsdk-gcc/bin" >> "$GITHUB_PATH"
+          cd "$HOME/xsdk"
           make -j2
 
       - name: Configure Cloud360
