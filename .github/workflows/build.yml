@@ -36,12 +36,18 @@ jobs:
             src/menu.c tests/test_menu.c -o /tmp/cloud360-menu-tests
           /tmp/cloud360-menu-tests
 
+      - name: Test animation and transitions (host GCC)
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/menu.c src/ui.c tests/test_ui.c -o /tmp/cloud360-ui-tests
+          /tmp/cloud360-ui-tests
+
       - name: Checkout open XSDK
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
 
       - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c
+        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c
 
       - name: Identify XSDK revision
         id: xsdk_revision
