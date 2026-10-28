@@ -117,6 +117,13 @@ A função HMAC usa OpenSSL apenas nos testes de host e
 `mbedtls-xenon` quando explicitamente habilitado para o XSDK.
 Sem backend criptográfico, a verificação falha de forma segura.
 
+O `src/ice_agent.c` possui agora nomeação **opcional e explícita**
+de um par previamente verificado: o agente controlador envia um
+segundo check STUN com `USE-CANDIDATE` e novo identificador,
+e só reconhece a nomeação após a resposta com HMAC válido do
+mesmo endereço. Isso **não completa ICE**, não abre DTLS
+nem ativa o envio de vídeo ou áudio.
+
 O `src/ice_agent.c` organiza até oito pares remotos IPv4/UDP
 por prioridade, emite checks STUN com HMAC e identificador de transação
 criptográfico fornecido pelo futuro backend, reutiliza o ID nos reenvios

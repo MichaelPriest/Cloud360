@@ -234,6 +234,20 @@ associar a origem corretamente e integrar os callbacks.
 A autorização Xbox/XSTS também não prova direito de uso
 do serviço. Ver [ICE_UDP.md](ICE_UDP.md).
 
+## Nomeação ICE — segunda transação autenticada
+
+O agendador de pares agora pode, opcionalmente e apenas
+no papel controlling, nomear um par previamente verificado.
+A função `cloud360_ice_agent_nominate()` exige
+resposta válida de menos de 30 segundos e gera
+uma nova transação com `USE-CANDIDATE` para o
+**mesmo candidato IPv4/UDP**. Não marca sucesso
+sem resposta autenticada ao segundo check.
+Ao confirmar o estado é `NOMINATION_ACKNOWLEDGED`,
+não `CONNECTED`; faltam checklist completo,
+consentimento vinculado, erros 487 e DTLS-SRTP.
+A produção não ativa essa opção.
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |

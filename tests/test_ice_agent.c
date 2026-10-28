@@ -298,12 +298,115 @@ static void test_fail_closed_and_limits(void)
     cloud360_ice_agent_tick(&agent,100);
     assert(agent.state==CLOUD360_ICE_AGENT_EXHAUSTED);
 }
+static bool has_stun_attr(const uint8_t *data, size_t bytes, uint16_t wanted)
+{
+    size_t at=20;
+    while(at+4<=bytes){
+        uint16_t t=(uint16_t)(((uint16_t)data[at]<<8)|data[at+1]);
+        uint16_t n=(uint16_t)(((uint16_t)data[at+2]<<8)|data[at+3]);
+        if(t==wanted)return true;
+        at+=4u+((n+3u)&~3u);
+    }
+    return false;
+}
+static void test_explicit_nomination(void)
+{
+    prepare();
+    Cloud360IceAgentConfig opt=cfg;
+    opt.enable_nomination=true;
+    assert(cloud360_ice_agent_add_pair(&agent,first,100));
+    assert(cloud360_ice_agent_start(
+        &agent,&opt,sha1,random_id,send_stub,&harness));
+    cloud360_ice_agent_tick(&agent,100);
+    assert(!has_stun_attr(harness.datagram,harness.size,0x0025));
+    uint8_t basic_id[12];
+    memcpy(basic_id,harness.datagram+8,12);
+    uint8_t reply[100];
+    const size_t n=make_reply(basic_id,reply,sizeof reply);
+    uint32_t original_generation=agent.generation;
+    assert(cloud360_ice_agent_receive(&agent,original_generation,
+                                      first,reply,n,200));
+    assert(agent.state==CLOUD360_ICE_AGENT_VERIFIED_NOT_NOMINATED);
+    assert(agent.remote_password[0]!=0); /* required for second check */
+    assert(!cloud360_ice_agent_nominate(NULL,201));
+    assert(cloud360_ice_agent_nominate(&agent,201));
+    assert(!cloud360_ice_agent_nominate(&agent,202));
+    assert(agent.state==CLOUD360_ICE_AGENT_NOMINATING);
+    assert(agent.generation!=original_generation);
+    assert(!cloud360_ice_agent_receive(&agent,original_generation,
+                                       first,reply,n,202));
+    const uint32_t nominated_generation=agent.generation;
+    cloud360_ice_agent_tick(&agent,202);
+    assert(harness.sent==2);
+    assert(has_stun_attr(harness.datagram,harness.size,0x0025));
+    assert(has_stun_attr(harness.datagram,harness.size,0x802a));
+    uint8_t nominated_id[12];
+    memcpy(nominated_id,harness.datagram+8,12);
+    assert(memcmp(nominated_id,basic_id,12)!=0);
+    assert(!cloud360_ice_agent_receive(&agent,nominated_generation,
+                                       first,reply,n,204)); /* old ID */
+    const size_t n2=make_reply(nominated_id,reply,sizeof reply);
+    assert(!cloud360_ice_agent_receive(&agent,nominated_generation,
+                                       attacker,reply,n2,205));
+    assert(cloud360_ice_agent_receive(&agent,nominated_generation,
+                                      first,reply,n2,206));
+    assert(agent.state==CLOUD360_ICE_AGENT_NOMINATION_ACKNOWLEDGED);
+    assert(agent.remote_password[0]==0);
+    Cloud360IceAgentView v;
+    cloud360_ice_agent_view(&agent,&v);
+    assert(v.nomination_acknowledged && v.has_authenticated_response);
+    assert(!cloud360_ice_agent_receive(&agent,nominated_generation,
+                                       first,reply,n2,207));
+    cloud360_ice_agent_tick(&agent,100000);
+    assert(harness.sent==2);
+}
+static void test_nomination_expiry_and_failed_second_check(void)
+{
+    prepare();
+    Cloud360IceAgentConfig opt=cfg;
+    opt.enable_nomination=true;
+    opt.controlling=false;
+    assert(cloud360_ice_agent_add_pair(&agent,first,1));
+    assert(!cloud360_ice_agent_start(
+        &agent,&opt,sha1,random_id,send_stub,&harness));
+
+    prepare();
+    opt.controlling=true;
+    assert(cloud360_ice_agent_add_pair(&agent,first,1));
+    assert(cloud360_ice_agent_start(
+        &agent,&opt,sha1,random_id,send_stub,&harness));
+    cloud360_ice_agent_tick(&agent,0);
+    uint8_t response[100];
+    size_t n=make_reply(harness.datagram+8,response,sizeof response);
+    assert(cloud360_ice_agent_receive(&agent,agent.generation,
+                                      first,response,n,1));
+    assert(!cloud360_ice_agent_nominate(&agent,30001));
+    assert(agent.state==CLOUD360_ICE_AGENT_EXHAUSTED);
+    assert(agent.remote_password[0]==0);
+
+    prepare();
+    assert(cloud360_ice_agent_add_pair(&agent,first,1));
+    assert(cloud360_ice_agent_start(
+        &agent,&opt,sha1,random_id,send_stub,&harness));
+    cloud360_ice_agent_tick(&agent,100);
+    n=make_reply(harness.datagram+8,response,sizeof response);
+    assert(cloud360_ice_agent_receive(&agent,agent.generation,
+                                      first,response,n,101));
+    assert(cloud360_ice_agent_nominate(&agent,102));
+    harness.fail_send=true;
+    cloud360_ice_agent_tick(&agent,103);
+    assert(agent.state==CLOUD360_ICE_AGENT_EXHAUSTED);
+    assert(agent.remote_password[0]==0);
+}
+
 int main(void)
 {
     test_pair_selection_and_retry();
     test_retransmit_exhaust_and_rollover();
     test_cancel_source_timeout();
     test_fail_closed_and_limits();
+    test_explicit_nomination();
+    test_nomination_expiry_and_failed_second_check();
     puts("Cloud360 ICE candidate pairs, retries, HMAC, peer origin, cancel: PASS");
     return 0;
 }

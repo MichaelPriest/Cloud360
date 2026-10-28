@@ -10,8 +10,9 @@
 /*
  * Conservative IPv4/UDP candidate-pair probe scheduler.
  *
- * This does NOT implement full RFC 8445 ICE, nomination, consent
- * freshness, TURN, or DTLS-SRTP. "VERIFIED" means a single Binding
+ * This does NOT implement full RFC 8445 ICE, a bidirectional checklist,
+ * consent freshness, TURN, role conflict recovery or DTLS-SRTP.
+ * "VERIFIED" means a single Binding
  * success response passed HMAC and matching UDP peer checks;
  * it MUST NOT be used as proof of an established WebRTC connection.
  *
@@ -30,6 +31,8 @@ typedef enum {
     CLOUD360_ICE_AGENT_IDLE = 0,
     CLOUD360_ICE_AGENT_CHECKING,
     CLOUD360_ICE_AGENT_VERIFIED_NOT_NOMINATED,
+    CLOUD360_ICE_AGENT_NOMINATING,
+    CLOUD360_ICE_AGENT_NOMINATION_ACKNOWLEDGED,
     CLOUD360_ICE_AGENT_EXHAUSTED,
     CLOUD360_ICE_AGENT_CANCELLED,
     CLOUD360_ICE_AGENT_CRYPTO_UNAVAILABLE
@@ -57,6 +60,8 @@ typedef struct {
     uint32_t candidate_priority;
     uint64_t tie_breaker;
     bool controlling;
+    /* Opt-in only. Full ICE role conflict and consent still required. */
+    bool enable_nomination;
 } Cloud360IceAgentConfig;
 
 typedef struct {
@@ -83,7 +88,9 @@ typedef struct {
     char remote_password[CLOUD360_ICE_PWD_MAX + 1];
     uint32_t local_priority;
     uint64_t tie_breaker;
+    uint32_t verified_at_ms;
     bool controlling;
+    bool enable_nomination;
     Cloud360IceHmacSha1 hmac;
     Cloud360IceRandom random;
     Cloud360IceSend send;
@@ -100,6 +107,7 @@ typedef struct {
     uint32_t invalid_responses;
     uint32_t attempts_for_active_pair;
     bool has_authenticated_response;
+    bool nomination_acknowledged;
     /* Deliberately no ICE credentials, tokens or transaction IDs. */
 } Cloud360IceAgentView;
 
@@ -125,8 +133,14 @@ bool cloud360_ice_agent_start(Cloud360IceAgent *agent,
  * which calls send(). Retries reuse their original transaction ID. */
 void cloud360_ice_agent_tick(Cloud360IceAgent *agent, uint32_t now_ms);
 
+/* After a successful basic check, the CONTROLLING agent may explicitly
+ * nominate the SAME pair with a fresh transaction ID and USE-CANDIDATE.
+ * Nothing is sent until the next tick(). The call fails if the prior
+ * proof is 30 seconds old. This is opt-in; existing checks stay safe. */
+bool cloud360_ice_agent_nominate(Cloud360IceAgent *agent, uint32_t now_ms);
+
 /* Drop wrong-origin, wrong-generation, late or unauthenticated packets.
- * A successful check does NOT nominate a pair or complete DTLS. */
+ * A successful basic check never nominates a pair by itself. */
 bool cloud360_ice_agent_receive(Cloud360IceAgent *agent,
                                  uint32_t generation,
                                  Cloud360UdpPeer source,

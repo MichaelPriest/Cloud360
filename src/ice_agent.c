@@ -88,6 +88,7 @@ bool cloud360_ice_agent_start(Cloud360IceAgent *agent,
 {
     if (!agent || !cfg || agent->state != CLOUD360_ICE_AGENT_IDLE ||
         !agent->count || !cfg->candidate_priority ||
+        (cfg->enable_nomination && !cfg->controlling) ||
         !credential(cfg->local_ufrag, 4, CLOUD360_ICE_UFRAG_MAX) ||
         !credential(cfg->remote_ufrag, 4, CLOUD360_ICE_UFRAG_MAX) ||
         !credential(cfg->remote_pwd, 22, CLOUD360_ICE_PWD_MAX))
@@ -107,6 +108,8 @@ bool cloud360_ice_agent_start(Cloud360IceAgent *agent,
     agent->local_priority = cfg->candidate_priority;
     agent->tie_breaker = cfg->tie_breaker;
     agent->controlling = cfg->controlling;
+    agent->enable_nomination = cfg->enable_nomination;
+    agent->verified_at_ms = 0;
     agent->hmac = hmac;
     agent->random = random;
     agent->send = send;
@@ -139,6 +142,12 @@ static void failed_pair(Cloud360IceAgent *agent)
 {
     Cloud360IcePair *pair = &agent->pairs[agent->active_index];
     pair->state = CLOUD360_ICE_PAIR_FAILED;
+    /* Nomination is for one previously validated pair. On failure,
+     * do NOT switch destinations and imply the same peer was nominated. */
+    if (agent->state == CLOUD360_ICE_AGENT_NOMINATING) {
+        exhausted(agent);
+        return;
+    }
     /* Keep this ID until the entire attempt finishes, so CSPRNG
      * collisions with later candidate checks can be rejected.
      * clear_secrets() wipes every transaction ID on exit. */
@@ -163,6 +172,10 @@ static bool start_pair(Cloud360IceAgent *agent, uint32_t now)
                    sizeof transaction) == 0)
             return false;
     }
+    if (agent->state == CLOUD360_ICE_AGENT_NOMINATING &&
+        memcmp(transaction, pair->transaction_id,
+               sizeof transaction) == 0)
+        return false;
     memcpy(pair->transaction_id, transaction, sizeof transaction);
     wipe(transaction, sizeof transaction);
     pair->state = CLOUD360_ICE_PAIR_INFLIGHT;
@@ -174,7 +187,8 @@ static bool start_pair(Cloud360IceAgent *agent, uint32_t now)
 }
 void cloud360_ice_agent_tick(Cloud360IceAgent *agent, uint32_t now)
 {
-    if (!agent || agent->state != CLOUD360_ICE_AGENT_CHECKING)
+    if (!agent || (agent->state != CLOUD360_ICE_AGENT_CHECKING &&
+                   agent->state != CLOUD360_ICE_AGENT_NOMINATING))
         return;
     while (agent->active_index < agent->count) {
         Cloud360IcePair *pair = &agent->pairs[agent->active_index];
@@ -201,7 +215,7 @@ void cloud360_ice_agent_tick(Cloud360IceAgent *agent, uint32_t now)
             .priority = agent->local_priority,
             .tie_breaker = agent->tie_breaker,
             .controlling = agent->controlling,
-            .nominate = false
+            .nominate = agent->state == CLOUD360_ICE_AGENT_NOMINATING
         };
         uint8_t packet[CLOUD360_STUN_PACKET_MAX] = { 0 };
         size_t written = 0;
@@ -224,13 +238,34 @@ void cloud360_ice_agent_tick(Cloud360IceAgent *agent, uint32_t now)
     }
     exhausted(agent);
 }
+bool cloud360_ice_agent_nominate(Cloud360IceAgent *agent, uint32_t now)
+{
+    if (!agent || agent->state !=
+            CLOUD360_ICE_AGENT_VERIFIED_NOT_NOMINATED ||
+        !agent->enable_nomination || !agent->controlling ||
+        !agent->hmac || !agent->random || !agent->send ||
+        agent->active_index >= agent->count)
+        return false;
+    if (elapsed(now, agent->verified_at_ms, 30000u)) {
+        exhausted(agent);
+        return false;
+    }
+    agent->state = CLOUD360_ICE_AGENT_NOMINATING;
+    agent->pairs[agent->active_index].state = CLOUD360_ICE_PAIR_WAITING;
+    /* Old proof callback IDs are invalidated, while the previous
+     * transaction ID stays until a distinct nomination ID is drawn. */
+    ++agent->generation;
+    return true;
+}
+
 bool cloud360_ice_agent_receive(Cloud360IceAgent *agent,
                                  uint32_t generation, Cloud360UdpPeer source,
                                  const uint8_t *packet, size_t size,
                                  uint32_t now)
 {
     if (!agent || generation != agent->generation ||
-        agent->state != CLOUD360_ICE_AGENT_CHECKING ||
+        (agent->state != CLOUD360_ICE_AGENT_CHECKING &&
+         agent->state != CLOUD360_ICE_AGENT_NOMINATING) ||
         agent->active_index >= agent->count || !packet ||
         !size || size > CLOUD360_STUN_PACKET_MAX)
         return false;
@@ -252,11 +287,21 @@ bool cloud360_ice_agent_receive(Cloud360IceAgent *agent,
         return false;
     }
     pair->state = CLOUD360_ICE_PAIR_VERIFIED;
+    if (agent->state == CLOUD360_ICE_AGENT_NOMINATING) {
+        agent->state = CLOUD360_ICE_AGENT_NOMINATION_ACKNOWLEDGED;
+        /* Nomination acknowledged for this check, but no confirmed
+         * full ICE checklist, consent, DTLS or game connection. */
+        clear_secrets(agent);
+        ++agent->generation;
+        return true;
+    }
     agent->state = CLOUD360_ICE_AGENT_VERIFIED_NOT_NOMINATED;
-    /* Receiving a valid reply means only an authenticated check,
-     * not ICE nomination, consent freshness or a DTLS channel. */
-    clear_secrets(agent);
-    ++agent->generation;
+    agent->verified_at_ms = now;
+    if (!agent->enable_nomination) {
+        clear_secrets(agent);
+        ++agent->generation;
+    }
+    /* Plain success is NOT nomination or authorization to send media. */
     return true;
 }
 void cloud360_ice_agent_cancel(Cloud360IceAgent *agent)
@@ -284,7 +329,11 @@ void cloud360_ice_agent_view(const Cloud360IceAgent *agent,
             agent->pairs[agent->active_index].attempts;
     }
     out->has_authenticated_response =
-        agent->state == CLOUD360_ICE_AGENT_VERIFIED_NOT_NOMINATED;
+        agent->state == CLOUD360_ICE_AGENT_VERIFIED_NOT_NOMINATED ||
+        agent->state == CLOUD360_ICE_AGENT_NOMINATING ||
+        agent->state == CLOUD360_ICE_AGENT_NOMINATION_ACKNOWLEDGED;
+    out->nomination_acknowledged =
+        agent->state == CLOUD360_ICE_AGENT_NOMINATION_ACKNOWLEDGED;
 }
 const char *cloud360_ice_agent_status(Cloud360IceAgentState state)
 {
@@ -293,6 +342,10 @@ const char *cloud360_ice_agent_status(Cloud360IceAgentState state)
         case CLOUD360_ICE_AGENT_CHECKING: return "VERIFICANDO CANDIDATOS...";
         case CLOUD360_ICE_AGENT_VERIFIED_NOT_NOMINATED:
             return "STUN AUTENTICADO, ICE NAO CONCLUIDO";
+        case CLOUD360_ICE_AGENT_NOMINATING:
+            return "NOMEANDO PAR COM USE-CANDIDATE...";
+        case CLOUD360_ICE_AGENT_NOMINATION_ACKNOWLEDGED:
+            return "NOMEACAO CONFIRMADA, SEM DTLS/CONSENTIMENTO";
         case CLOUD360_ICE_AGENT_EXHAUSTED: return "CANDIDATOS INACESSIVEIS";
         case CLOUD360_ICE_AGENT_CANCELLED: return "VERIFICACOES CANCELADAS";
         case CLOUD360_ICE_AGENT_CRYPTO_UNAVAILABLE:

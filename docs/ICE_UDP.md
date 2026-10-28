@@ -94,6 +94,32 @@ O código não implementa nomination/consent, ICE role conflict,
 checagem dos pares de origem ou validação do certificado DTLS.
 Uma resposta STUN autenticada não autoriza streaming.
 
+## Nomeação explícita de um candidato (RFC 8445)
+
+O agendador `ice_agent.c` também oferece a opção
+`enable_nomination`, válida apenas no papel **controlling**.
+Após uma verificação de conectividade autenticada, o cliente
+precisa chamar `cloud360_ice_agent_nominate()` explicitamente,
+em até 30 segundos. O agendador gera novo ID por callback
+criptográfico e envia um segundo Binding check com
+`USE-CANDIDATE`; sua resposta deve passar novamente
+por HMAC, endereço/porta, ID e timeout. Sem esse segundo
+check a nomeação não é considerada confirmada.
+
+O estado `NOMINATION_ACKNOWLEDGED` não declara que o
+checklist ICE completo foi encerrado, nem que foi feito
+consent freshness ou verificado DTLS. Se ocorrer um erro,
+não tenta nomear outro destino silenciosamente.
+O tratamento automático de erros **487 Role Conflict**
+ainda é trabalho futuro; a fase atual não deve ser
+habilitada com servidores reais sem esse tratamento.
+
+O aplicativo principal continua sem provedores conectados
+e nunca chama esse fluxo em produção. Os testes de host
+com OpenSSL e candidatos fictícios verificam que o
+segundo check traz `USE-CANDIDATE`, não aceita IDs antigos,
+recusa respostas de origem errada e não habilita mídia.
+
 ## Consent freshness e bloqueio de mídia (RFC 7675)
 
 `src/ice_consent.[ch]` adiciona um controlador independente

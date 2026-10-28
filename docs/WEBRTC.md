@@ -94,6 +94,21 @@ conectividade bidirecional, consentimento, nomination ou TURN.
 A UI SESSAO continua com o provedor desativado.
 Mais detalhes em [ICE_UDP.md](ICE_UDP.md).
 
+## Nomeação de par candidato
+
+O agente agora pode enviar um **segundo check com
+`USE-CANDIDATE`** após uma resposta positiva ao check
+básico, somente na função explícita de nomeação e
+somente para o agente controlador. Esse passo utiliza
+um novo ID de 96 bits, HMAC e a mesma checagem de
+endereço/porta. Apenas a resposta desse check altera
+o estado para `NOMINATION_ACKNOWLEDGED`.
+
+Isso não é um checklist ICE completo; ainda faltam
+candidatos locais, controle de erros 487 Role Conflict,
+testes bidirecionais, consentimento efetivamente
+encadeado ao futuro DTLS/RTP e verificação no Xbox.
+
 ## Consentimento STUN para transmissão futura
 
 A segurança do envio de mídia exige, além do checklist ICE,
