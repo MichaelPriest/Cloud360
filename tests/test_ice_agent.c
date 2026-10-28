@@ -104,6 +104,31 @@ static size_t make_reply(const uint8_t tx[12],uint8_t *packet,size_t cap)
     put32(packet+60,crc32_stun(packet,56));
     return 64;
 }
+static size_t make_role_conflict(const uint8_t tx[12],
+                                 uint8_t *out,size_t cap)
+{
+    assert(cap>=60);
+    memset(out,0,cap);
+    put16(out,0x0111); /* STUN Binding Error Response */
+    put16(out+2,40);
+    put32(out+4,0x2112a442);
+    memcpy(out+8,tx,12);
+    put16(out+20,0x0009); /* ERROR-CODE */
+    put16(out+22,4);
+    out[24]=0;out[25]=0;out[26]=4;out[27]=87;
+    put16(out+28,0x0008); /* MESSAGE-INTEGRITY */
+    put16(out+30,20);
+    put16(out+2,32); /* temporary length for HMAC */
+    uint8_t digest[20];
+    assert(sha1(NULL,(const uint8_t *)cfg.remote_pwd,
+                strlen(cfg.remote_pwd),out,28,digest));
+    memcpy(out+32,digest,20);
+    put16(out+2,40);
+    put16(out+52,0x8028); /* FINGERPRINT */
+    put16(out+54,4);
+    put32(out+56,crc32_stun(out,52));
+    return 60;
+}
 static void prepare(void)
 {
     memset(&harness,0,sizeof harness);
@@ -298,6 +323,54 @@ static void test_fail_closed_and_limits(void)
     cloud360_ice_agent_tick(&agent,100);
     assert(agent.state==CLOUD360_ICE_AGENT_EXHAUSTED);
 }
+static void test_authenticated_role_conflict(void)
+{
+    prepare();
+    assert(cloud360_ice_agent_add_pair(&agent,first,100));
+    assert(cloud360_ice_agent_start(
+        &agent,&cfg,sha1,random_id,send_stub,&harness));
+    cloud360_ice_agent_tick(&agent,100);
+    uint8_t response[100];
+    size_t n=make_role_conflict(harness.datagram+8,response,sizeof response);
+    const uint32_t old=agent.generation;
+    assert(!cloud360_ice_verify_role_conflict(
+        response,n,harness.datagram+9,cfg.remote_pwd,sha1,NULL));
+    assert(cloud360_ice_verify_role_conflict(
+        response,n,harness.datagram+8,cfg.remote_pwd,sha1,NULL));
+    response[38]^=1; /* tamper with integrity */
+    assert(!cloud360_ice_verify_role_conflict(
+        response,n,harness.datagram+8,cfg.remote_pwd,sha1,NULL));
+    assert(!cloud360_ice_agent_receive(&agent,old,first,response,n,101));
+    assert(agent.state==CLOUD360_ICE_AGENT_CHECKING);
+    response[38]^=1;
+    assert(!cloud360_ice_agent_receive(&agent,old,attacker,response,n,102));
+    assert(cloud360_ice_agent_receive(&agent,old,first,response,n,103));
+    assert(agent.state==CLOUD360_ICE_AGENT_ROLE_CONFLICT);
+    assert(agent.remote_password[0]==0);
+    assert(agent.generation!=old);
+    assert(!cloud360_ice_agent_receive(&agent,old,first,response,n,104));
+    assert(!cloud360_ice_agent_nominate(&agent,104));
+    Cloud360IceAgentView view;
+    cloud360_ice_agent_view(&agent,&view);
+    assert(!view.has_authenticated_response &&
+           !view.nomination_acknowledged);
+    assert(!strcmp(cloud360_ice_agent_status(view.state),
+                   "CONFLITO ICE 487: REINICIAR COM OUTRO PAPEL"));
+
+    /* An authenticated error other than 487 must NOT be treated as
+     * a role conflict. A fresh attempt is needed after failure. */
+    prepare();
+    assert(cloud360_ice_agent_add_pair(&agent,first,1));
+    assert(cloud360_ice_agent_start(
+        &agent,&cfg,sha1,random_id,send_stub,&harness));
+    cloud360_ice_agent_tick(&agent,100);
+    n=make_role_conflict(harness.datagram+8,response,sizeof response);
+    response[27]=3; /* 403, but stale integrity/fingerprint */
+    assert(!cloud360_ice_agent_receive(&agent,agent.generation,
+                                       first,response,n,102));
+    assert(agent.state==CLOUD360_ICE_AGENT_CHECKING);
+}
+
 static bool has_stun_attr(const uint8_t *data, size_t bytes, uint16_t wanted)
 {
     size_t at=20;
@@ -407,6 +480,7 @@ int main(void)
     test_fail_closed_and_limits();
     test_explicit_nomination();
     test_nomination_expiry_and_failed_second_check();
+    test_authenticated_role_conflict();
     puts("Cloud360 ICE candidate pairs, retries, HMAC, peer origin, cancel: PASS");
     return 0;
 }

@@ -105,8 +105,12 @@ endereço/porta. Apenas a resposta desse check altera
 o estado para `NOMINATION_ACKNOWLEDGED`.
 
 Isso não é um checklist ICE completo; ainda faltam
-candidatos locais, controle de erros 487 Role Conflict,
-testes bidirecionais, consentimento efetivamente
+candidatos locais e recuperação automática após erros
+487 Role Conflict. Respostas 487 autenticadas são
+reconhecidas e causam interrupção segura; o agente não
+troca o papel sem refazer tie-breaker, prioridades e
+checklist. Também faltam testes bidirecionais,
+consentimento efetivamente
 encadeado ao futuro DTLS/RTP e verificação no Xbox.
 
 ## Consentimento STUN para transmissão futura

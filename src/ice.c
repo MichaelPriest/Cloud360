@@ -292,3 +292,74 @@ bool cloud360_ice_verify_binding_response(
     *mapping = result;
     return true;
 }
+
+bool cloud360_ice_verify_role_conflict(
+    const uint8_t *packet, size_t length,
+    const uint8_t transaction_id[12],
+    const char *password, Cloud360IceHmacSha1 hmac, void *context)
+{
+    /* 0x0111 is STUN Binding Error Response; the lowest two bits
+     * of the STUN message type must be zero. */
+    if (!packet || !transaction_id || !password || !hmac ||
+        !valid_ice_credential(password,CLOUD360_ICE_PWD_MAX,22) ||
+        length < 20u || length > CLOUD360_STUN_PACKET_MAX ||
+        ((length - 20u) % 4u) != 0u ||
+        packet[0] != 0x01 || packet[1] != 0x11 ||
+        packet[4] != 0x21 || packet[5] != 0x12 ||
+        packet[6] != 0xa4 || packet[7] != 0x42 ||
+        (((size_t)packet[2] << 8) | packet[3]) != length - 20u)
+        return false;
+    uint8_t mismatch = 0;
+    for (size_t i = 0; i < 12u; ++i)
+        mismatch |= packet[8u+i] ^ transaction_id[i];
+    if (mismatch) return false;
+
+    bool error_487=false, integrity=false, fingerprint=false;
+    size_t at=20u;
+    while (at < length) {
+        if (length - at < 4u) return false;
+        const uint16_t type =
+            (uint16_t)(((uint16_t)packet[at] << 8) | packet[at+1u]);
+        const uint16_t amount =
+            (uint16_t)(((uint16_t)packet[at+2u] << 8) | packet[at+3u]);
+        const size_t aligned=((size_t)amount+3u)&~(size_t)3u;
+        if (aligned > length - at - 4u || fingerprint) return false;
+        const uint8_t *value=packet+at+4u;
+        if (integrity && type!=ATTR_FINGERPRINT) return false;
+        if (type==0x0009u) { /* ERROR-CODE */
+            if(error_487 || amount<4u || value[0]!=0u ||
+               value[1]!=0u || value[2]!=4u || value[3]!=87u)
+                return false;
+            error_487=true;
+        } else if (type==ATTR_MESSAGE_INTEGRITY) {
+            if (integrity || amount!=CLOUD360_ICE_HMAC_SHA1_LEN)
+                return false;
+            uint8_t input[CLOUD360_STUN_PACKET_MAX];
+            memcpy(input,packet,at);
+            const size_t end=at+24u;
+            input[2]=(uint8_t)((end-20u)>>8);
+            input[3]=(uint8_t)(end-20u);
+            uint8_t expected[CLOUD360_ICE_HMAC_SHA1_LEN]={0};
+            const bool valid=hmac(context,(const uint8_t *)password,
+                                  strlen(password),input,at,expected);
+            uint8_t diff=0;
+            for (size_t i=0;i<sizeof expected;++i)
+                diff |= expected[i]^value[i];
+            volatile uint8_t *clear=expected;
+            for (size_t i=0;i<sizeof expected;++i) clear[i]=0;
+            if (!valid || diff) return false;
+            integrity=true;
+        } else if (type==ATTR_FINGERPRINT) {
+            if (!integrity || amount!=4u || at+8u!=length)
+                return false;
+            const uint32_t got=((uint32_t)value[0]<<24) |
+                ((uint32_t)value[1]<<16) |
+                ((uint32_t)value[2]<<8) | value[3];
+            if(got != fingerprint_crc(packet,at))return false;
+            fingerprint=true;
+        } else if (type<0x8000u) return false;
+        at+=4u+aligned;
+    }
+    return error_487 && integrity;
+}
+

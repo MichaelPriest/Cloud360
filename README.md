@@ -122,7 +122,12 @@ de um par previamente verificado: o agente controlador envia um
 segundo check STUN com `USE-CANDIDATE` e novo identificador,
 e só reconhece a nomeação após a resposta com HMAC válido do
 mesmo endereço. Isso **não completa ICE**, não abre DTLS
-nem ativa o envio de vídeo ou áudio.
+nem ativa o envio de vídeo ou áudio. O gerenciador também
+identifica respostas STUN **487 Role Conflict** somente quando
+o erro é autenticado por HMAC e corresponde à transação e
+ao remetente esperados. Nesse caso, encerra a tentativa com
+`ROLE_CONFLICT`, pois a troca de papel e a reorganização
+do checklist requerem uma implementação ICE completa.
 
 O `src/ice_agent.c` organiza até oito pares remotos IPv4/UDP
 por prioridade, emite checks STUN com HMAC e identificador de transação

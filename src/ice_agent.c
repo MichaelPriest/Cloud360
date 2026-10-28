@@ -283,6 +283,18 @@ bool cloud360_ice_agent_receive(Cloud360IceAgent *agent,
     if (!cloud360_ice_verify_binding_response(
             packet, size, pair->transaction_id,agent->remote_password,
             agent->hmac, agent->context, &mapping)) {
+        /* A verified 487 is a peer role conflict, not packet loss.
+         * Fail closed here: RFC 8445 requires a role switch, a NEW
+         * tie-breaker and reprioritization of the full checklist.
+         * This subset cannot perform those actions safely yet. */
+        if (cloud360_ice_verify_role_conflict(
+                packet,size,pair->transaction_id,agent->remote_password,
+                agent->hmac,agent->context)) {
+            agent->state=CLOUD360_ICE_AGENT_ROLE_CONFLICT;
+            clear_secrets(agent);
+            ++agent->generation;
+            return true;
+        }
         ++agent->invalid_responses;
         return false;
     }
@@ -346,6 +358,8 @@ const char *cloud360_ice_agent_status(Cloud360IceAgentState state)
             return "NOMEANDO PAR COM USE-CANDIDATE...";
         case CLOUD360_ICE_AGENT_NOMINATION_ACKNOWLEDGED:
             return "NOMEACAO CONFIRMADA, SEM DTLS/CONSENTIMENTO";
+        case CLOUD360_ICE_AGENT_ROLE_CONFLICT:
+            return "CONFLITO ICE 487: REINICIAR COM OUTRO PAPEL";
         case CLOUD360_ICE_AGENT_EXHAUSTED: return "CANDIDATOS INACESSIVEIS";
         case CLOUD360_ICE_AGENT_CANCELLED: return "VERIFICACOES CANCELADAS";
         case CLOUD360_ICE_AGENT_CRYPTO_UNAVAILABLE:

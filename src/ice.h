@@ -64,6 +64,16 @@ bool cloud360_ice_verify_binding_response(
     Cloud360IceHmacSha1 hmac, void *crypto_context,
     Cloud360StunMapping *mapping);
 
+/* Verify a STUN Binding ERROR response with ERROR-CODE 487
+ * (RFC 8445 ICE Role Conflict) using short-term HMAC credentials,
+ * exact transaction ID and optional FINGERPRINT. This is a
+ * diagnostic only: switching roles requires a full ICE agent. */
+bool cloud360_ice_verify_role_conflict(
+    const uint8_t *packet, size_t length,
+    const uint8_t transaction_id[CLOUD360_STUN_TRANSACTION_LEN],
+    const char *remote_password, Cloud360IceHmacSha1 hmac,
+    void *crypto_context);
+
 /* Optional mbedTLS backend, disabled unless explicitly integrated. */
 bool cloud360_ice_mbedtls_hmac_sha1(
     void *context, const uint8_t *key, size_t key_len,

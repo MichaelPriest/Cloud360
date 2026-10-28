@@ -248,6 +248,19 @@ não `CONNECTED`; faltam checklist completo,
 consentimento vinculado, erros 487 e DTLS-SRTP.
 A produção não ativa essa opção.
 
+## ICE — erro de conflito de papéis (487)
+
+Foi adicionado um parser de `Binding Error Response`
+para o código `487 Role Conflict`, com MESSAGE-INTEGRITY
+HMAC-SHA1, transaction ID e FINGERPRINT opcional.
+O agendador também exige correspondência da origem UDP.
+Ao confirmar o erro, interrompe os checks com estado
+`ROLE_CONFLICT`, apaga credenciais e invalida respostas
+tardias. **Não troca o papel automaticamente**: o
+RFC 8445 requer outra prioridade de pares, novo tie-breaker
+e novas verificações, dependentes de um ICE completo.
+Os testes usam erros STUN sintéticos autenticados.
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |

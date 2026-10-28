@@ -110,9 +110,14 @@ O estado `NOMINATION_ACKNOWLEDGED` não declara que o
 checklist ICE completo foi encerrado, nem que foi feito
 consent freshness ou verificado DTLS. Se ocorrer um erro,
 não tenta nomear outro destino silenciosamente.
-O tratamento automático de erros **487 Role Conflict**
-ainda é trabalho futuro; a fase atual não deve ser
-habilitada com servidores reais sem esse tratamento.
+O tratamento do erro **487 Role Conflict** agora identifica
+apenas as respostas corretamente autenticadas por HMAC,
+transação e endereço do par. A tentativa termina com erro
+`ROLE_CONFLICT` e limpa credenciais; não tenta trocar papéis
+automaticamente, pois o RFC 8445 exige a troca do
+tie-breaker e reordenação do checklist. A recuperação
+automática ainda é trabalho futuro e essa fase não deve
+ser habilitada com servidores reais sem tal tratamento.
 
 O aplicativo principal continua sem provedores conectados
 e nunca chama esse fluxo em produção. Os testes de host
