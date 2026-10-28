@@ -176,6 +176,30 @@ Há testes de pacotes/candidatos/SDP falsos em Linux e verificação
 de sintaxe dos fontes com XSDK; nenhum endpoint Microsoft foi
 contatado e nenhum XEX foi compilado. Ver [WEBRTC.md](WEBRTC.md).
 
+## Transporte IPv4/UDP e MESSAGE-INTEGRITY para ICE
+
+Adicionamos `src/udp.c` com socket IPv4 não bloqueante, envio
+e recebimento com limite de 1500 bytes, controle de origem e
+timeout por `poll()`. Um teste Linux faz um round-trip UDP apenas
+pela interface loopback; isso **não valida sockets UDP no Xbox 360**.
+
+O módulo `src/ice.c` monta verificações ICE com credenciais
+username fragment (remote:local), priority, papel controlling/
+controlled, tiebreaker e atributo HMAC-SHA1 MESSAGE-INTEGRITY.
+Verifica respostas STUN com transaction ID, XOR-MAPPED-ADDRESS,
+HMAC e FINGERPRINT quando presente. A operação exige uma
+implementação HMAC externa; o adaptador `src/ice_crypto.c`
+usa mbedTLS somente se explicitamente configurado junto
+das bibliotecas TLS de Xbox. Sem suporte criptográfico, o
+código recusa os checks, sem fallback inseguro.
+
+**Isso ainda não é ICE estabelecido nem conexão xCloud.**
+Faltam checklist de candidatos, timer de retransmissão,
+papéis, TURN, consentimento, DTLS-SRTP e um serviço de sessão
+autorizado. A produção não abre sockets nem declara
+`PEER_CONNECTED` com base na simples verificação HMAC.
+Ver [ICE_UDP.md](ICE_UDP.md).
+
 ## Etapas técnicas restantes
 
 | Prioridade | Subsistema | Resultado esperado |
@@ -187,7 +211,7 @@ contatado e nenhum XEX foi compilado. Ver [WEBRTC.md](WEBRTC.md).
 | 5 | Catálogo e busca | Dados reais autorizados carregados da rede, paginação, filtros, imagens otimizadas |
 | 5 | Biblioteca e favoritos | Estado da conta sincronizado, cache local com integridade |
 | 6 | Sessões na nuvem | Máquina de estados com fila, timeouts e reconexão; faltam provedor autorizado e testes físicos |
-| 7 | WebRTC e transporte | Parsing SDP/ICE IPv4 e STUN Binding em fonte; faltam UDP, ICE autenticado, DTLS-SRTP e hardware |
+| 7 | WebRTC e transporte | SDP, STUN, checks HMAC-SHA1 e UDP não bloqueante em fonte; faltam ICE completo, DTLS-SRTP e testes físicos |
 | 8 | Vídeo e áudio | Viabilidade de decodificar H.264 e áudio no hardware Xenon |
 | 9 | Controle e desempenho | Envio de input, latência, reconexão, métricas e robustez |
 | 10 | Testes finais do XEX | Testes e diagnóstico na Aurora e no console Xbox 360 físico |

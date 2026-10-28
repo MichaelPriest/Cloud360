@@ -64,6 +64,33 @@ autenticação do servidor, DTLS ou conexão com o xCloud.
 O FINGERPRINT STUN é um CRC de integridade acidental, **não uma
 assinatura criptográfica**. Não há tráfego UDP na versão atual.
 
+## Novidade: ICE autenticado e transporte UDP local
+
+`src/ice.c` gera mensagens de verificação com RFC 8445 USERNAME
+(remote:local), PRIORITY, ICE-CONTROLLING ou ICE-CONTROLLED,
+USE-CANDIDATE quando aplicável e MESSAGE-INTEGRITY (HMAC-SHA1).
+Compara o HMAC de respostas Binding em tempo independente dos
+bytes de hash, respeitando o campo Length temporário exigido
+pelo RFC 8489. Exige correspondência do transaction ID e
+XOR-MAPPED-ADDRESS. Rejeita MESSAGE-INTEGRITY ausente, alterado,
+duplicado ou atributos obrigatórios desconhecidos. O CRC
+FINGERPRINT continua sendo uma checagem não criptográfica.
+
+`src/ice_crypto.c` fornece o adaptador HMAC do mbedTLS
+**somente quando o backend for habilitado**. Sem biblioteca
+criptográfica, retorna erro em vez de aceitar pacotes.
+O Linux usa OpenSSL apenas nos testes de referência.
+`src/udp.c` abre/binda socket IPv4, usa nonblocking/poll,
+envia e recebe datagramas com limites de tamanho e origem
+visível. O teste de troca UDP acontece em localhost Linux,
+não com servidores remotos ou Xbox 360.
+
+**Ainda não existe cliente ICE funcional:** faltam verificação
+de origem/candidate pair, retransmissões, controle de papéis,
+conectividade bidirecional, consentimento, TURN, DTLS e SRTP.
+A UI SESSAO continua com o provedor desativado.
+Mais detalhes em [ICE_UDP.md](ICE_UDP.md).
+
 ## Integração ao coordenador de sessões
 
 `cloud360_session_remote_sdp()` valida a resposta SDP e registra
@@ -81,9 +108,10 @@ O build de produção ainda passa `transport_available=false`.
 
 1. Integração de serviço de sessão autorizado e
    intercâmbio SDP/ICE (API estável e permitida).
-2. UDP socket assíncrono XSDK e CSPRNG do console.
-3. ICE real com autenticação MESSAGE-INTEGRITY, pairing,
-   nomination, retransmissões, consentimento e TURN quando
+2. Validar a implementação UDP IPv4 em hardware XSDK e adicionar
+   CSPRNG confiável (sem `rand()` ou timestamp como ID de transação).
+3. Conectar os helpers MESSAGE-INTEGRITY ao checklist ICE completo,
+   com candidate pairing, retransmissões, consentimento e TURN quando
    necessário; IPv6/TCP opcional conforme redes suportadas.
 4. DTLS com certificado verificado contra a fingerprint
    recebida; SRTP e anti-replay.

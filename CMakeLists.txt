@@ -23,6 +23,9 @@ add_executable(cloud360
     src/session.c
     src/rtc.c
     src/stun.c
+    src/ice.c
+    src/ice_crypto.c
+    src/udp.c
 )
 set_target_properties(cloud360 PROPERTIES C_STANDARD 17 C_EXTENSIONS ON)
 target_compile_options(cloud360 PRIVATE -Wall -Wextra -Werror)
@@ -51,7 +54,7 @@ if(CLOUD360_ENABLE_SECURE_HTTP)
     set(CURL_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
     add_subdirectory("${CLOUD360_CURL_XENON_DIR}" curl-xenon)
     target_link_libraries(cloud360 PRIVATE CURL::libcurl mbedtls)
-    target_compile_definitions(cloud360 PRIVATE CLOUD360_WITH_CURL=1)
+    target_compile_definitions(cloud360 PRIVATE CLOUD360_WITH_CURL=1 CLOUD360_WITH_MBEDTLS=1)
 endif()
 
 # XSDK requires major.minor.build.fix (four numeric components).

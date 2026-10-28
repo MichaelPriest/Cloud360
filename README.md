@@ -66,7 +66,8 @@ Veja o [plano de integração por módulos](docs/DEVELOPMENT.md), o
 [guia de login Microsoft](docs/AUTH.md) e
 [guia da integração Xbox/XSTS](docs/XSTS.md) e o
 [guia do ciclo de sessões de jogo](docs/SESSION.md) e o
-[guia da infraestrutura WebRTC/SDP/STUN](docs/WEBRTC.md).
+[guia da infraestrutura WebRTC/SDP/STUN](docs/WEBRTC.md) e o
+[guia de transporte UDP e ICE com integridade](docs/ICE_UDP.md).
 
 ### Catálogo JSON (fonte independente, não é Game Pass)
 
@@ -106,6 +107,15 @@ A máquina de sessão agora exige **SDP válido** antes de aceitar
 o evento de par conectado. O módulo `src/stun.c` monta mensagens
 Binding e valida respostas IPv4/XOR-MAPPED-ADDRESS e FINGERPRINT
 conforme RFC 8489, sem sockets, uso de credenciais ou tráfego.
+
+Também há o módulo `src/ice.c`, que monta verificações ICE com
+USERNAME, PRIORITY, papel ICE e MESSAGE-INTEGRITY HMAC-SHA1,
+e verifica respostas autenticadas STUN com transação correspondente.
+`src/udp.c` implementa sockets não bloqueantes IPv4 e limita
+datagramas a 1500 bytes; o teste de loopback usa somente o Linux.
+A função HMAC usa OpenSSL apenas nos testes de host e
+`mbedtls-xenon` quando explicitamente habilitado para o XSDK.
+Sem backend criptográfico, a verificação falha de forma segura.
 
 Esses componentes são parsers/protocolos preparatórios, não
 equivalem a uma conexão WebRTC. O console continua sem sessão xCloud

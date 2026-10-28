@@ -29,7 +29,7 @@ jobs:
       - name: Install host libcurl for source-only checks
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libcurl4-openssl-dev pkg-config
+          sudo apt-get install -y -qq libcurl4-openssl-dev libssl-dev pkg-config
 
       - name: Run menu test
         run: |
@@ -158,6 +158,19 @@ jobs:
             src/stun.c tests/test_stun.c -o /tmp/cloud360-stun
           /tmp/cloud360-stun
 
+      - name: Test authenticated ICE/STUN HMAC-SHA1 with host OpenSSL
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/ice.c src/ice_crypto.c src/stun.c tests/test_ice.c \
+            -lcrypto -o /tmp/cloud360-ice
+          /tmp/cloud360-ice
+
+      - name: Test nonblocking IPv4 UDP loopback (no external network)
+        run: |
+          gcc -std=gnu17 -Wall -Wextra -Werror -pedantic \
+            src/udp.c tests/test_udp.c -o /tmp/cloud360-udp
+          /tmp/cloud360-udp
+
       - name: Test session coordinator with required validated SDP
         run: |
           gcc -std=c17 -Wall -Wextra -Werror -pedantic \
@@ -184,7 +197,7 @@ jobs:
             src/catalog.c src/catalog_runtime.c src/oauth.c \
             src/oauth_json.c src/oauth_runtime.c \
             src/xbl.c src/xbl_runtime.c src/session.c \
-            src/rtc.c src/stun.c
+            src/rtc.c src/stun.c src/ice.c src/ice_crypto.c src/udp.c
 
       - name: Confirm no .xex is generated
         run: |

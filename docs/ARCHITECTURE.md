@@ -43,8 +43,13 @@ Detalhes em ORBITA_REFERENCE.md.
 - `session.c`: estados de sessão, fila, sinalização, quadro de mídia,
   reconexão, timeouts e cancelamento por geração. Nenhum servidor conectado.
 - `rtc.c`: parsing SDP e candidatos ICE com validação e limites estritos.
-- `stun.c`: codec de mensagens Binding e análise XOR-MAPPED-ADDRESS.
-  Ainda não implementa UDP/ICE autenticado.
+- `stun.c`: codec de mensagens Binding e análise XOR-MAPPED-ADDRESS
+  (parser público não aceita MESSAGE-INTEGRITY sem verificação).
+- `ice.c`: checks com HMAC-SHA1 validado por biblioteca criptográfica
+  configurável; ainda não implementa um agente ICE completo.
+- `ice_crypto.c`: adaptador mbedTLS opcional, com falha segura sem backend.
+- `udp.c`: envio/recebimento IPv4 com socket não bloqueante e limite
+  de datagramas; nenhum servidor remoto é acionado em produção.
 
 ## Referência de interface
 
