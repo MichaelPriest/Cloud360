@@ -1,6 +1,6 @@
 /*
- * Cloud360 - prototype dashboard for Xbox 360 RGH/JTAG.
- * This build does not implement streaming, authentication, or Game Pass.
+ * Cloud360 native Xbox 360 dashboard.
+ * Experimental interface only. No Microsoft authentication or game streaming.
  */
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,21 +15,26 @@
 
 #include "menu.h"
 #include "render.h"
+#include "settings.h"
 #include "ui.h"
 
 enum {
-    SPLASH_MS = 1100,
+    SPLASH_MS = 900,
     BUFFER_COUNT = 2,
     SWAP_INTERVAL = 1,
-    BEGIN_TIMEOUT_MS = 5000
+    BEGIN_TIMEOUT_MS = 5000,
+    STICK_DEADZONE = 15000
 };
 
-static uint32_t now_ms(void)
+#define SETTINGS_FILE "game:/cloud360.cfg"
+
+static uint32_t milliseconds(void)
 {
     struct timespec now = { 0 };
     if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
         return 0;
-    return (uint32_t)((uint64_t)now.tv_sec * 1000 + (uint64_t)now.tv_nsec / 1000000);
+    return (uint32_t)((uint64_t)now.tv_sec * 1000u +
+                      (uint64_t)now.tv_nsec / 1000000u);
 }
 
 static uint16_t controller_buttons(void)
@@ -39,18 +44,29 @@ static uint16_t controller_buttons(void)
         return 0;
 
     const uint16_t raw = input.gamepad.buttons;
-    uint16_t mapped = 0;
-    if (raw & INPUT_GAMEPAD_DPAD_UP)
-        mapped |= CLOUD360_MENU_UP;
-    if (raw & INPUT_GAMEPAD_DPAD_DOWN)
-        mapped |= CLOUD360_MENU_DOWN;
+    const int16_t left_x = input.gamepad.thumb_lx;
+    const int16_t left_y = input.gamepad.thumb_ly;
+    uint16_t buttons = 0;
+
+    if ((raw & INPUT_GAMEPAD_DPAD_UP) || left_y > STICK_DEADZONE)
+        buttons |= CLOUD360_MENU_UP;
+    if ((raw & INPUT_GAMEPAD_DPAD_DOWN) || left_y < -STICK_DEADZONE)
+        buttons |= CLOUD360_MENU_DOWN;
+    if ((raw & INPUT_GAMEPAD_DPAD_LEFT) || left_x < -STICK_DEADZONE)
+        buttons |= CLOUD360_MENU_LEFT;
+    if ((raw & INPUT_GAMEPAD_DPAD_RIGHT) || left_x > STICK_DEADZONE)
+        buttons |= CLOUD360_MENU_RIGHT;
     if (raw & INPUT_GAMEPAD_A)
-        mapped |= CLOUD360_MENU_SELECT;
+        buttons |= CLOUD360_MENU_SELECT;
     if (raw & INPUT_GAMEPAD_B)
-        mapped |= CLOUD360_MENU_CLOSE;
+        buttons |= CLOUD360_MENU_CLOSE;
     if (raw & INPUT_GAMEPAD_BACK)
-        mapped |= CLOUD360_MENU_BACK;
-    return mapped;
+        buttons |= CLOUD360_MENU_BACK;
+    if (raw & INPUT_GAMEPAD_LEFT_SHOULDER)
+        buttons |= CLOUD360_MENU_PREVIOUS_TAB;
+    if (raw & INPUT_GAMEPAD_RIGHT_SHOULDER)
+        buttons |= CLOUD360_MENU_NEXT_TAB;
+    return buttons;
 }
 
 static void run_title(uint32_t width, uint32_t height)
@@ -59,33 +75,43 @@ static void run_title(uint32_t width, uint32_t height)
     Cloud360UiState ui;
     cloud360_menu_init(&menu);
     cloud360_ui_init(&ui);
-    uint32_t last_ms = now_ms();
 
-    xsdk_log_write("Cloud360: Azul Cloud360 dashboard %ux%u", (unsigned)width, (unsigned)height);
+    if (cloud360_settings_load(&menu.settings, SETTINGS_FILE))
+        xsdk_log_write("Cloud360: preferences loaded");
+    else
+        xsdk_log_write("Cloud360: using default preferences");
 
+    xsdk_log_write("Cloud360: xCloud-inspired native shell %ux%u",
+                   (unsigned)width, (unsigned)height);
+
+    uint32_t last_ms = milliseconds();
     for (;;) {
-        const uint32_t prev_selected = menu.selected;
-        const uint32_t prev_message = menu.message_index;
+        const uint32_t prev_section = menu.selected;
         if (cloud360_menu_step(&menu, controller_buttons())) {
-            xsdk_log_write("Cloud360: Back pressed, exiting");
+            xsdk_log_write("Cloud360: Back pressed - exit");
             return;
         }
-        if (menu.selected != prev_selected)
-            xsdk_log_write("Cloud360: selected %u", (unsigned)menu.selected);
-        if (menu.message_index != prev_message)
-            xsdk_log_write("Cloud360: info panel %u", (unsigned)menu.message_index);
 
-        const uint32_t current_ms = now_ms();
-        uint32_t dt_ms = current_ms - last_ms;
-        last_ms = current_ms;
-        if (dt_ms > 250)
-            dt_ms = 16;
-        cloud360_ui_step(&ui, &menu, dt_ms);
+        if (menu.settings_dirty) {
+            menu.storage_error = !cloud360_settings_save(&menu.settings, SETTINGS_FILE);
+            xsdk_log_write(menu.storage_error
+                           ? "Cloud360: preferences changed (not persisted)"
+                           : "Cloud360: preferences saved");
+        }
+        if (menu.selected != prev_section)
+            xsdk_log_write("Cloud360: section %u", (unsigned)menu.selected);
+
+        const uint32_t now = milliseconds();
+        uint32_t delta = now - last_ms;
+        last_ms = now;
+        if (delta > 250)
+            delta = 16;
+        cloud360_ui_step(&ui, &menu, delta);
 
         uint32_t address = 0;
         const NTSTATUS status = xsdk_present_begin(&address, BEGIN_TIMEOUT_MS);
         if (!NT_SUCCESS(status)) {
-            xsdk_log_write("Cloud360: xsdk_present_begin failed: 0x%08X", (unsigned)status);
+            xsdk_log_write("Cloud360: present failed 0x%08X", (unsigned)status);
             return;
         }
 
@@ -96,30 +122,30 @@ static void run_title(uint32_t width, uint32_t height)
 
 int main(void)
 {
-    xsdk_log_write("Cloud360: startup");
+    xsdk_log_write("Cloud360: boot");
     const NTSTATUS splash = xsdk_splash_show(SPLASH_MS);
     if (!NT_SUCCESS(splash))
         xsdk_log_write("Cloud360: splash failed 0x%08X", (unsigned)splash);
 
     NTSTATUS status = xsdk_gpu_open();
     if (!NT_SUCCESS(status)) {
-        xsdk_log_write("Cloud360: gpu open failed 0x%08X", (unsigned)status);
+        xsdk_log_write("Cloud360: GPU unavailable 0x%08X", (unsigned)status);
         return 1;
     }
 
     status = xsdk_text_open();
     if (!NT_SUCCESS(status)) {
-        xsdk_log_write("Cloud360: font open failed 0x%08X", (unsigned)status);
+        xsdk_log_write("Cloud360: font unavailable 0x%08X", (unsigned)status);
         (void)xsdk_gpu_close();
         return 1;
     }
 
     uint32_t width = 0;
     uint32_t height = 0;
-    status = xsdk_present_open(XSDK_DISPLAY_720P, BUFFER_COUNT, SWAP_INTERVAL,
-                               &width, &height);
+    status = xsdk_present_open(XSDK_DISPLAY_720P, BUFFER_COUNT,
+                               SWAP_INTERVAL, &width, &height);
     if (!NT_SUCCESS(status)) {
-        xsdk_log_write("Cloud360: display open failed 0x%08X", (unsigned)status);
+        xsdk_log_write("Cloud360: display unavailable 0x%08X", (unsigned)status);
         xsdk_text_close();
         (void)xsdk_gpu_close();
         return 1;
@@ -131,7 +157,7 @@ int main(void)
     xsdk_text_close();
     status = xsdk_gpu_close();
     if (!NT_SUCCESS(status))
-        xsdk_log_write("Cloud360: gpu close failed 0x%08X", (unsigned)status);
-    xsdk_log_write("Cloud360: clean shutdown");
+        xsdk_log_write("Cloud360: GPU close failed 0x%08X", (unsigned)status);
+    xsdk_log_write("Cloud360: shutdown");
     return 0;
 }

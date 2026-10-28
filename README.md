@@ -1,30 +1,43 @@
 # Cloud360 — protótipo nativo para Xbox 360
 
-**Estado atual:** protótipo com identidade visual **Azul Cloud360**, dashboard 720p, cards, painel de informações, seleção e transições animadas em C; navegação pelo direcional e botões A, B e Back, preparado para compilar como XEX para Xbox 360 RGH/JTAG. **Ainda não é um cliente funcional do Xbox Cloud Gaming (xCloud)** e o XEX ainda precisa ser compilado e validado.
+**Estado atual:** aplicativo experimental para Xbox 360 RGH/JTAG com interface Azul Cloud360 **0.2**, inspirada na organização da prévia web do Xbox Cloud Gaming (2026). Inclui navegação superior, categorias, cards, ícones próprios, configurações reais e animações suaves. **Não é ainda um cliente funcional do xCloud:** não há login Microsoft, catálogo conectado, vídeo nem streaming. A compilação e a execução em hardware desta versão precisam ser verificadas separadamente.
 
 ## Objetivo desta etapa
 
 Criar uma primeira aplicação nativa que possa ser iniciada pela Aurora sem iniciar o XeLL manualmente. O projeto usa a toolchain comunitária [xsdk](https://github.com/xenosworks/xsdk).
 
-O código foi escrito para mostrar a tela de splash, inicializar GPU e vídeo em 720p, desenhar a dashboard Azul Cloud360 com a API de texto do XSDK e permitir navegação animada pelo controle. As opções de streaming exibem avisos de que ainda não estão implementadas. **A compilação e o teste em hardware ainda estão pendentes.**
+O código mostra o splash, inicializa a GPU e o vídeo em 720p, desenha a dashboard Azul Cloud360 com a API de texto do XSDK e permite navegação animada e configuração pelo controle. As opções de streaming exibem avisos de que ainda não estão implementadas. **Esta nova versão ainda depende de confirmação do build e teste em console real.**
 
 ## O que está incluído
 
 - Código-fonte em C.
 - CMake configurado para produzir um XEX.
-- Testes automatizados da navegação e das animações com compilador nativo no GitHub Actions.
-- Renderizador GPU com fonte bitmap do XSDK para fundos, cards e destaques; sem texturas externas.
+- Testes automatizados da navegação, animações, preferências e ícones com compilador nativo no GitHub Actions.
+- Renderizador GPU com fonte bitmap do XSDK para fundos, cards, ícones e destaques; sem texturas externas.
 - Instruções para preparar o ambiente no Windows com WSL/Debian.
 - Referências técnicas para as próximas etapas.
 
-## Interface Azul Cloud360 (protótipo)
+## Interface Azul Cloud360 v0.2
 
-- **Identidade:** fundo azul-marinho, azul elétrico de destaque, texto claro e painéis escuros.
-- **Layout:** 1280×720, navegação vertical, hero, três cards de recursos e modal de detalhes.
-- **Controles:** direcional para escolher, A para abrir detalhes, B para fechar e Back para sair.
-- **Animações:** cursor com easing cúbico (~240 ms), entrada do conteúdo, abertura de modal (~220 ms) e iluminação ambiente discreta.
-- **Desempenho:** animações baseadas em tempo decorrido, limitando saltos após pausa; fonte GPU do XSDK, sem imagens externas.
-- **Estado:** nenhuma opção inicia streaming. As telas informam que esses serviços ainda não foram implementados.
+Inspirada na organização da prévia web do Xbox Cloud Gaming: barra superior, destaque editorial, cards de categorias, espaço para biblioteca e busca. **Não reproduz artes, logotipos ou código da Microsoft.** Utiliza ícones originais em pixel art (caracteres de bloco da fonte XSDK).
+
+- **Tela:** 1280×720, tema azul-marinho/azul elétrico, indicadores de seleção e janelas de aviso.
+- **Abas:** Início, Explorar, Buscar, Biblioteca, Ajustes e Sobre.
+- **Controle:** esquerda/direita escolhem aba, baixo ou A entra nos cards, esquerda/direita troca card, cima ou B retorna. LB/RB mudam aba de qualquer lugar; Back encerra o aplicativo. O analógico esquerdo também navega.
+- **Configurações disponíveis:** animações ligadas/desligadas, iluminação ambiente ligada/desligada, alto contraste, dicas na tela e restaurar padrões. Altere com A ou direita, e B retorna. As opções alteram a interface de verdade.
+- **Persistência:** `game:/cloud360.cfg` na pasta do executável, sem salvar senha ou token. Se a mídia estiver protegida contra gravação, a interface mostra o aviso e os ajustes permanecem ativos apenas durante a execução.
+- **Animação:** transições de aba e foco com easing cúbico, entrada de painel e modal, iluminação ambiente discreta; desligar animações remove as transições.
+- **Catálogo/busca:** **são placeholders identificados**; não há dados reais de jogos ou sessão online ainda.
+
+### Desenvolvimento e testes
+
+```bash
+gcc -std=c17 -Wall -Wextra -Werror -pedantic src/settings.c src/menu.c tests/test_menu.c -o /tmp/cloud360-menu && /tmp/cloud360-menu
+gcc -std=c17 -Wall -Wextra -Werror -pedantic src/settings.c src/menu.c src/ui.c tests/test_ui.c -o /tmp/cloud360-ui && /tmp/cloud360-ui
+gcc -std=c17 -Wall -Wextra -Werror -pedantic src/settings.c tests/test_settings.c -o /tmp/cloud360-settings && /tmp/cloud360-settings
+```
+
+O GitHub Actions também valida a renderização de ícones via código e a sintaxe das APIs do XSDK antes de compilar o .xex.
 
 ## O que ainda não está implementado
 
@@ -117,7 +130,7 @@ Um build bem-sucedido não garante que o programa funcione em todas as configura
 
 1. Compilar o protótipo e corrigir qualquer erro real.
 2. Testar a inicialização e o menu na Aurora.
-3. Implementar e testar navegação adicional, estados e configurações.
-4. Pesquisar separadamente a viabilidade de autenticação, rede e streaming do xCloud.
+3. Integrar catálogo real quando houver um cliente de autenticação funcional.
+4. Pesquisar implementação e viabilidade de rede, WebRTC, vídeo H.264, áudio Opus e controle para streaming do xCloud.
 
 Cloud360 é um projeto independente, não afiliado nem endossado pela Microsoft, Xbox ou pelos projetos de referência.

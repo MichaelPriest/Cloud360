@@ -4,34 +4,46 @@
 #include <stdint.h>
 #include "menu.h"
 
-/* Fixed timestep-independent animation values. No graphics/console dependency. */
 enum {
-    CLOUD360_UI_SELECTION_MS = 240,
-    CLOUD360_UI_INTRO_MS = 440,
-    CLOUD360_UI_MODAL_MS = 220,
-    CLOUD360_UI_NAV_TOP = 204,
-    CLOUD360_UI_NAV_STEP = 82
+    CLOUD360_UI_TAB_X = 300,
+    CLOUD360_UI_TAB_STEP = 142,
+    CLOUD360_UI_SETTINGS_Y = 228,
+    CLOUD360_UI_SETTINGS_STEP = 72,
+    CLOUD360_UI_TAB_MS = 200,
+    CLOUD360_UI_PAGE_MS = 240,
+    CLOUD360_UI_INTRO_MS = 420,
+    CLOUD360_UI_MODAL_MS = 200
 };
 
 typedef struct {
-    int32_t cursor_y;
-    int32_t cursor_start_y;
-    int32_t cursor_target_y;
-    uint32_t cursor_ms;
-    uint32_t content_ms;
+    int32_t tab_x;
+    int32_t tab_start_x;
+    int32_t tab_target_x;
+    int32_t setting_y;
+    int32_t setting_start_y;
+    int32_t setting_target_y;
+    uint32_t tab_ms;
+    uint32_t setting_ms;
+    uint32_t page_ms;
     uint32_t intro_ms;
     uint32_t modal_ms;
+    uint32_t focus_ms;
     uint32_t ambient_ms;
-    uint32_t previous_selected;
+    uint32_t previous_section;
+    uint32_t previous_setting;
+    uint32_t previous_card;
     uint32_t previous_message;
+    bool previous_focus;
 } Cloud360UiState;
 
 void cloud360_ui_init(Cloud360UiState *ui);
 void cloud360_ui_step(Cloud360UiState *ui, const Cloud360Menu *menu, uint32_t dt_ms);
-uint8_t cloud360_ui_content_alpha(const Cloud360UiState *ui);
+
+uint8_t cloud360_ui_page_alpha(const Cloud360UiState *ui);
 uint8_t cloud360_ui_intro_alpha(const Cloud360UiState *ui);
 uint8_t cloud360_ui_modal_alpha(const Cloud360UiState *ui);
+uint8_t cloud360_ui_focus_alpha(const Cloud360UiState *ui);
 uint8_t cloud360_ui_ambient_alpha(const Cloud360UiState *ui);
-int32_t cloud360_ui_content_offset(const Cloud360UiState *ui);
+int32_t cloud360_ui_page_offset(const Cloud360UiState *ui);
 
 #endif

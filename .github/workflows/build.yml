@@ -33,21 +33,33 @@ jobs:
       - name: Test menu logic (host GCC)
         run: |
           gcc -std=c17 -Wall -Wextra -Werror -pedantic \
-            src/menu.c tests/test_menu.c -o /tmp/cloud360-menu-tests
+            src/settings.c src/menu.c tests/test_menu.c -o /tmp/cloud360-menu-tests
           /tmp/cloud360-menu-tests
 
       - name: Test animation and transitions (host GCC)
         run: |
           gcc -std=c17 -Wall -Wextra -Werror -pedantic \
-            src/menu.c src/ui.c tests/test_ui.c -o /tmp/cloud360-ui-tests
+            src/settings.c src/menu.c src/ui.c tests/test_ui.c -o /tmp/cloud360-ui-tests
           /tmp/cloud360-ui-tests
+
+      - name: Test settings persistence (host GCC)
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            src/settings.c tests/test_settings.c -o /tmp/cloud360-settings-tests
+          /tmp/cloud360-settings-tests
 
       - name: Checkout open XSDK
         run: |
           git clone --depth 1 https://github.com/xenosworks/xsdk.git "$HOME/xsdk"
 
+      - name: Test original pixel icons (host GCC)
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -pedantic \
+            -I "$HOME/xsdk/include" src/icons.c tests/test_icons.c -o /tmp/cloud360-icons-tests
+          /tmp/cloud360-icons-tests
+
       - name: Validate XEX source syntax with XSDK headers
-        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c
+        run: gcc -std=gnu17 -Wall -Wextra -Werror -fsyntax-only -I "$HOME/xsdk/include" src/main.c src/render.c src/icons.c
 
       - name: Identify XSDK revision
         id: xsdk_revision
